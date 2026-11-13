@@ -4977,6 +4977,12 @@ bool init_pools_make(const VkCommandPoolCreateInfo& pi) {
 
 } // namespace
 
+/// (hookshot) Whether work recorded before what the game did since may still run later: a queue stopped at a wait (as
+/// PR 430's held releases wait for), or the replay on its own thread (RX_VK_ASYNC). vk_memory.cpp retire_finalized_pools
+bool replay_may_run_older_work() {
+    return async_on() || blocked_n.load(std::memory_order_relaxed) > 0;
+}
+
 bool replay_start() {
     menu_init();
     if (!memory_init() || !vma_init(instance_proc())) return false;
@@ -5096,6 +5102,7 @@ void fill_replay_table(MkwVkRenderer& t) {
     t.nvn_write_texels = write_texels;
     t.nvn_invalidate = invalidate;
     t.nvn_pool_created = memory_pool_created;
+    t.nvn_pool_finalized = memory_pool_finalized;
     t.guest_imported = memory_guest_imported;
     t.nvn_vmap_changing = vmap_changing;
     t.nvn_texture_created = texture_created_of;

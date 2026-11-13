@@ -114,7 +114,7 @@ std::atomic<uint64_t> guest_pools_gen{1};   // (bumped when that table is replac
 std::map<uint64_t, Pool> imported;    // by lo, made on first use
 Pool* last_pool = nullptr;            // (the last pool_of hit: draws in a row bind buffers of the same pools)
 extern Pool* pool_cache[4096];
-void retire_pool(std::map<uint64_t, Pool>::iterator it);
+void retire_pool(std::map<uint64_t, Pool>::iterator it, bool finalized = false);
 Pool* pool_lookup(uint64_t guest, uint64_t size);
 struct SrwMutex {   // (a slim reader/writer lock: half std::mutex's cost, taken for every buffer a draw binds)
     SRWLOCK l = SRWLOCK_INIT;
@@ -942,13 +942,16 @@ bool sync_live() {
 std::atomic<bool> cap_shutting_down{false};     // (set under cap_free_mu when the process starts to exit: after it no worker touches cap_free)
 std::mutex cap_free_mu;   // (the submitting threads take buffers from cap_free, the replay gives them back)
 uint64_t cap_free_bytes = 0;   // (cap_free_mu)
-// (the spare buffers: 12 and, on a card of 6 GB or less, 32 MB of them; RX_VK_CAP_SPARE_MB=<n>: that many, 0: as before.
-// After a load the retired ones, 40-60 MB each, stayed as spares for good)
+// (the spare buffers: 12 and, on a card of 6 GB or less, 32 MB of them; above, 256 MB: the prewarmed 32, 64 and 128 MB
+// spares (cap_prewarm_on) and a little more. They were not capped there, and after a load the retired ones, 40-60 MB each,
+// stayed as spares for good, up to cap_buf_free's 768 MB of host memory. RX_VK_CAP_SPARE_MB=<n>: that many, 0: not capped)
 uint64_t cap_spare_max() {
-    static const uint64_t v = [] {
-        if (const char* e = getenv("RX_VK_CAP_SPARE_MB")) return e[0] && atoll(e) ? (uint64_t)atoll(e) << 20 : ~0ull;
+    static const uint64_t v = []() -> uint64_t {
+        const int mb = env_int("RX_VK_CAP_SPARE_MB", -1);
+        if (mb == 0) return ~0ull;
+        if (mb > 0) return (uint64_t)mb << 20;
         uint64_t used = 0, allowed = 0;
-        return vram_usage(&used, &allowed) && allowed <= (6ull << 30) + (512ull << 20) ? 32ull << 20 : ~0ull;
+        return vram_usage(&used, &allowed) && allowed <= (6ull << 30) + (512ull << 20) ? 32ull << 20 : 256ull << 20;
     }();
     return v;
 }
@@ -1053,9 +1056,12 @@ bool cap_buf_get(uint64_t need, VkBuffer& buffer, VmaAllocation& alloc, void*& m
     std::lock_guard lk(cap_free_mu);
     if (cap_prewarm_on()) {
         static bool first = true;
-        if (first) {   // (the first capture: the classes a load asks for)
+        if (first) {   // (the first capture: the classes a load asks for, within cap_spare_max)
             first = false;
-            for (uint64_t c : {32ull << 20, 64ull << 20, 128ull << 20, 192ull << 20}) cap_prewarm_class(c);
+            // (hookshot: not the 192 MB class any more. Its spare was 192 MB of host memory held for the session, the system
+            // heap's drop in #2759's runs, and the stutter it was made for was measured in the 32, 64 and 128 MB classes. A
+            // capture of 129-192 MB makes its buffer as it comes, as the 256 MB class's always did)
+            for (uint64_t c : {32ull << 20, 64ull << 20, 128ull << 20}) cap_prewarm_class(c);
         }
     }
     size_t best = cap_free.size();
@@ -1935,11 +1941,14 @@ bool take_capture(std::unique_ptr<Capture> c, uint64_t value, uint64_t completed
     st_tk_lock += std::chrono::duration<double, std::milli>(tk_locked - tl).count();
     cur_cap_value = value;
     cur_cap_gen = 0;
-    // (captures past the last kKeep, or past the byte budget, retired once the work that read them is done)
+    // (captures past the last kKeep, or past the byte budget, retired once the work that read them is done. And, past 96 MB in
+    // them, the oldest one no submission used for 120: a load's big captures were kept until 24 newer ones came)
     while (!cap_bufs.empty()) {
         auto oldest = cap_bufs.begin();
-        const bool over = cap_bufs.size() > kKeep || cap_bytes > kCapBytesMax;
-        if (!over || std::max(oldest->second.value, oldest->second.last_use) > completed) break;
+        const uint64_t last_val = std::max(oldest->second.value, oldest->second.last_use);
+        const bool over = cap_bufs.size() > kKeep || cap_bytes > kCapBytesMax ||
+                          (cap_bytes > (96ull << 20) && last_val + 120 <= completed);
+        if (!over || last_val > completed) break;
         cap_buf_retire(oldest);
     }
     uint32_t g = 0;
@@ -2592,7 +2601,7 @@ void cut_cpu_words(const Pool& p, std::vector<VkBufferCopy>& runs) {
 // a parallel replay thread's pool cache still point at a live one.)
 std::deque<std::map<uint64_t, Pool>::node_type> retired_pools;
 
-void retire_pool(std::map<uint64_t, Pool>::iterator it) {
+void retire_pool(std::map<uint64_t, Pool>::iterator it, bool finalized) {
     Pool* old = &it->second;
     shadow_free(*old);   // (its write-backs in this submission, if any, copied whole)
     guest_pages_set(old->lo, old->hi, 0);
@@ -2611,8 +2620,84 @@ void retire_pool(std::map<uint64_t, Pool>::iterator it) {
     last_pool = nullptr;
     std::fill(std::begin(pool_cache), std::end(pool_cache), nullptr);
     static int logged;
-    if (logged++ < 8 || retired_pools.size() % 64 == 0)
+    if (!finalized && (logged++ < 8 || retired_pools.size() % 64 == 0))   // (a finalized one: retire_finalized_pools' own line)
         logf("vk: pool %#llx remade larger (%zu retired)", (unsigned long long)old->lo, retired_pools.size());
+}
+
+// ---- (hookshot) pools the game finalized: retired, their imports given back. Before, an import stayed until a pool was made
+// over it (retire_pool above), and the imports of pools nothing was made over again stayed for the session: on an 8 GB card
+// 257 imports (8.7 GB) after Title, Kokiri and Hyrule Field, against 74 (2.8 GB) with this. Three rules keep it from
+// retiring what may still be used:
+// - the game's own pools, counted by range as it makes and finalizes them (memory_pool_created / memory_pool_finalized), and
+//   not only the GPU mappings (guest_pools): there a pool made over another's memory lost its entry to the old one's
+//   finalize (host/nvdrv.c hos_gpu_track) while it was still live. An import over a pool in either is kept;
+// - retired as a pool remade larger is: its mirror kept for the pool made over its range next, for kIdleEpochs submissions
+//   at most (inherit_pending), and its range's textures, GPU-owned ranges and capture spans kept as long, then let go only if
+//   no pool was made over it (finalized_settle). A scene load finalizes pools and makes them again over the same memory a
+//   submission or more later, and what the GPU wrote there (Kokiri's foliage records) is read again;
+// - not while a queue is stopped at a wait, nor with the replay on its own thread (RX_VK_ASYNC): work recorded before the
+//   finalize may still run and reach the pool through the page table (PR 430's held releases, for the same reason).
+// RX_VK_KEEP_FINALIZED_POOLS=1: kept, as before ----
+std::mutex live_pools_mu;   // (the game's threads make and finalize pools; the replay reads them)
+std::map<std::pair<uint64_t, uint64_t>, int> live_pools;   // ({lo, hi} aligned outwards: made and not finalized; live_pools_mu)
+std::atomic<uint64_t> live_pools_gen{1};   // (bumped by each finalize: retire_finalized_pools looks again)
+bool keep_finalized_pools() {
+    static const bool v = env_on("RX_VK_KEEP_FINALIZED_POOLS");
+    return v;
+}
+void live_pool_count(uint64_t gpu, uint64_t size, int d) {
+    if (!size || gpu >= (1ull << 40)) return;   // (virtual pools are not imported)
+    const uint64_t lo = gpu & ~(align - 1), hi = (gpu + size + align - 1) & ~(align - 1);
+    std::lock_guard lk(live_pools_mu);
+    auto it = live_pools.find({lo, hi});
+    if (d > 0) {
+        if (it == live_pools.end()) live_pools.emplace(std::make_pair(lo, hi), d);
+        else it->second += d;
+    } else if (it != live_pools.end() && (it->second += d) <= 0) {
+        live_pools.erase(it);
+    }
+}
+/// Whether a pool of the game's is over [lo, hi): in the GPU mappings or among the game's made-and-not-finalized pools
+/// (pools_mu held)
+bool game_pool_over(uint64_t lo, uint64_t hi) {
+    auto g = std::lower_bound(guest_pools.begin(), guest_pools.end(), hi, [](const GuestPool& p, uint64_t v) { return p.lo < v; });
+    for (auto it = guest_pools.begin(); it != g; ++it)   // (the host's may overlap: one starting lower may still reach lo)
+        if (it->hi > lo) return true;
+    std::lock_guard lk(live_pools_mu);
+    for (auto it = live_pools.begin(); it != live_pools.end() && it->first.first < hi; ++it)
+        if (it->first.second > lo) return true;
+    return false;
+}
+struct FinalizedRange { uint64_t lo, hi, epoch; };
+std::vector<FinalizedRange> finalized_waiting;   // (retired, their textures kept until finalized_settle; pools_mu)
+uint64_t st_finalized_n = 0, st_finalized_bytes = 0, st_finalized_remade = 0;
+void retire_finalized_pools() {   // (pools_mu held)
+    if (keep_finalized_pools() || imported.empty()) return;
+    static uint64_t checked_gen = ~0ull, checked_live = ~0ull;
+    const uint64_t gen = guest_pools_gen.load(std::memory_order_relaxed), live = live_pools_gen.load(std::memory_order_relaxed);
+    if (gen == checked_gen && live == checked_live) return;
+    if (replay_may_run_older_work()) return;   // (looked at again at the next submission: nothing marked as seen)
+    checked_gen = gen, checked_live = live;
+    uint64_t n = 0, freed_bytes = 0;
+    for (auto it = imported.begin(); it != imported.end();) {
+        const uint64_t lo = it->second.lo, hi = it->second.hi;
+        if (game_pool_over(lo, hi)) {
+            ++it;
+            continue;
+        }
+        auto cur = it++;
+        n++, freed_bytes += hi - lo;
+        finalized_waiting.push_back({lo, hi, mirror_epoch});
+        retire_pool(cur, true);   // (inherit_pending with a mirror: the pool made over it next takes what the GPU wrote)
+    }
+    if (!n) return;
+    st_finalized_n += n, st_finalized_bytes += freed_bytes;
+    static int logged;
+    if (logged++ < 32 || logged % 16 == 0)
+        logf("vk: %llu finalized pool(s) retired (%llu MB; %llu pools, %llu MB in all; %llu made again over since; "
+             "RX_VK_KEEP_FINALIZED_POOLS=1: kept)", (unsigned long long)n, (unsigned long long)(freed_bytes >> 20),
+             (unsigned long long)st_finalized_n, (unsigned long long)(st_finalized_bytes >> 20),
+             (unsigned long long)st_finalized_remade);
 }
 int64_t st_sync_bytes, st_sync_copies, st_wb_bytes, st_mirrors;
 int64_t st_sync_live_pages, st_sync_cap_pages, st_sync_old_pages;   // (mirror syncs' dirty pages: live / this submit's capture / an earlier one's)
@@ -2971,6 +3056,7 @@ BufferRef gpu_buffer(uint64_t gpu, uint64_t size) {
 }
 
 void memory_pool_created(uint64_t gpu, uint64_t size) {
+    live_pool_count(gpu, size, 1);   // (the game's own view of its pools: retire_finalized_pools)
     // (RX_VK_BG_IMPORT=1 only: imported eagerly, every pool the game made, most never used by the GPU, the thread's
     // page locking stalled the game's threads (3-7 fps); chunked imports at first use are the default)
     static const bool on = env_on("RX_VK_BG_IMPORT");
@@ -2982,6 +3068,10 @@ void memory_pool_created(uint64_t gpu, uint64_t size) {
     bg_inflight.push_back(lo);
     bg_queue.push_back({lo, hi});
     bg_cv.notify_one();
+}
+void memory_pool_finalized(uint64_t gpu, uint64_t size) {
+    live_pool_count(gpu, size, -1);
+    live_pools_gen.fetch_add(1, std::memory_order_relaxed);
 }
 
 // (hookshot) Whether one imported pool holds all of [lo, hi): a lookup there imports nothing (vk_texture.cpp
@@ -3627,8 +3717,38 @@ void trims_settle() {
     }
 }
 
+/// (pools_mu held) A finalized pool's range (retire_finalized_pools): a pool made over it since keeps its textures, as its
+/// mirror went to that pool. None within kIdleEpochs submissions, as long as the mirror waits for one (mirrors_give_back),
+/// and its textures, GPU-owned ranges and capture spans go
+void finalized_settle() {
+    if (finalized_waiting.empty() || replay_may_run_older_work()) return;   // (as retire_finalized_pools)
+    std::vector<std::pair<uint64_t, uint64_t>> gone;
+    std::erase_if(finalized_waiting, [&](const FinalizedRange& r) {
+        if (game_pool_over(r.lo, r.hi)) {
+            st_finalized_remade++;
+            return true;
+        }
+        if (mirror_epoch - r.epoch <= kIdleEpochs) return false;
+        gone.push_back({r.lo, r.hi});
+        return true;
+    });
+    if (gone.empty()) return;
+    {
+        std::lock_guard sk(shadow_mu);
+        for (const auto& [lo, hi] : gone) {
+            for (auto it = tex_spans.lower_bound(lo); it != tex_spans.end() && it->first < hi;)
+                it = it->second.first <= hi ? tex_spans.erase(it) : std::next(it);
+            shadow_drop_range(lo, hi);
+        }
+        tex_spans_changed = true;
+    }
+    for (const auto& [lo, hi] : gone) texture_pool_finalized(lo, hi);
+}
+
 void memory_begin_submission() {
     std::lock_guard lk(pools_mu);
+    retire_finalized_pools();
+    finalized_settle();
     reap_mirrors();
     retired_imports_give_back();
     mirror_epoch++;

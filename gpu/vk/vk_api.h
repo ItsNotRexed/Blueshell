@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-#define MKWVK_API_VERSION 21
+#define MKWVK_API_VERSION 22
 enum { HOS_OPT_CHEAT_HEARTS = 32, HOS_OPT_CHEAT_FLIGHT, HOS_OPT_CHEAT_ACTION, HOS_OPT_CHEAT_CAMERA, HOS_OPT_CHEAT_SPEED };
 /* (hookshot) the Gameplay tab's Text size (host/oot_text_size.c): 0 the game's, 1 110%, 2 125%, 3 150%, 4 175% */
 enum { HOS_OPT_TEXT_SIZE = 10 };
@@ -270,6 +270,10 @@ typedef struct MkwVkRenderer {
        game's thread, before any draw uses it: what the back end kept ready for it can be loaded now (gpu/vk/vk_programs.cpp).
        Its stages' code and control sections are in the game's memory at this call */
     void (*nvn_program_created)(const nvn_prog *p);
+    /* (version 22, hookshot) a memory pool finalized (non-virtual; nvn_pool_created's): counted against the pools made, by
+       range, it tells the back end which pools are live when the GPU mappings lost a live pool's entry (host/nvdrv.c
+       hos_gpu_track), so a finalized pool's import can go back (gpu/vk/vk_memory.cpp retire_finalized_pools) */
+    void (*nvn_pool_finalized)(uint64_t gpu, uint64_t size);
 } MkwVkRenderer;
 
 /* the DLL's one export: null when Vulkan is not usable (the executable then falls back to WebGPU) */

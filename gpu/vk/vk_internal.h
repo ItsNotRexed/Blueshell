@@ -209,6 +209,7 @@ struct ParLock {
     ParLock& operator=(const ParLock&) = delete;
 };
 void memory_pool_created(uint64_t gpu, uint64_t size);
+void memory_pool_finalized(uint64_t gpu, uint64_t size);   // (hookshot: the game's own view of its pools, retire_finalized_pools)
 /// Whether guest memory in [lo, hi) is in an imported pool, live or retired (the GPU may read or write it)
 int memory_guest_imported(uint64_t lo, uint64_t hi);
 int memory_guest_contained(uint64_t lo, uint64_t hi);   // (whether one imported pool holds all of [lo, hi): vk_texture.cpp upload_unswizzle_gpu)
@@ -354,6 +355,7 @@ bool swapchain_dlssg();     // (vk_main.cpp: and DLSS-G makes its sets: V-Sync A
 void retire_swapchain();   // (dev.present_mu held)
 bool invalidate_lost_surface(VkResult result);   // (dev.present_mu held)
 bool replay_start();                          // vk_replay.cpp
+bool replay_may_run_older_work();             // vk_replay.cpp (a queue stopped at a wait, or RX_VK_ASYNC)
 bool precompile_wanted();                     // vk_draw.cpp
 void precompile_run(void (*progress)(size_t done, size_t total));
 bool prepare_run(void (*progress)(size_t done, size_t total), bool background, bool refresh_states = false);
