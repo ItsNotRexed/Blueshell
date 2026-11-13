@@ -507,13 +507,53 @@ void hos_vi_native_presented(const int64_t phases[4]) {
     }
     const int64_t n = InterlockedIncrement64(&presents);
     present_trace(n, now, phases);
-    {   /* HOS_MKW_INTERVAL=<0|1|2>: the interval MKW's pacer is held at, through its own override (+0x210, any
-           non-zero value is used as the interval): 1 (the default): a steady 60 fps; 2: 30; 0: the game's choice,
-           which with frames between 16.7 and 33 ms swings between the two (25-27 fps, stutters). Its timing counts
-           vsyncs, so an interval the renderer cannot keep slows the game down rather than dropping frames */
-        static int forced = -1;
-        if (forced < 0) forced = getenv("HOS_MKW_INTERVAL") ? atoi(getenv("HOS_MKW_INTERVAL")) : 1;
-        if (hos_mkw_pacer && forced >= 0 && forced <= 2) G32(hos_mkw_pacer + 0x210) = (uint32_t)forced;
+    {   /* HOS_MKW_INTERVAL=<0|1|2|a|c>: the interval MKW's pacer is held at, through its own override (+0x210, any non-zero
+           value is used as the interval). The game's clock is a vsync count (0x837e8438) its pacer adds the interval to every
+           frame (0x806bcd40), so a frame that takes longer than its interval slows the game down.
+           1: a steady 60 fps step (the game slows below 60); 2: 30; 0: the game's choice (25-27 fps, stutters).
+           (blueshell, from mkw-recomp) a: each frame's interval the vsyncs that really went by since the last present (1 or 2,
+           the remainder carried), as the game's own 30 fps mode steps; c: the pacer held at 1 and the clock given the extra
+           vsyncs. With no switch: the Insert menu's Game speed, Real time (the default) c, Per frame 1 */
+        static int forced = -2;
+        if (forced == -2) {
+            const char *e = getenv("HOS_MKW_INTERVAL");
+            forced = !e ? -4 : *e == 'a' ? -1 : *e == 'c' ? -3 : atoi(e);
+        }
+        int rx_option(int id, int otherwise);
+        int mode = forced;
+        if (mode == -4) mode = rx_option(0, 1) ? -3 : 1;
+        if (hos_mkw_pacer && mode >= 0 && mode <= 2) G32(hos_mkw_pacer + 0x210) = (uint32_t)mode;
+        if (hos_mkw_pacer && (mode == -1 || mode == -3)) {
+            static int64_t last, debt;
+            const int64_t vs = 1000000000LL / 60;
+            if (last) {
+                debt += now - last;
+                if (debt > 3 * vs) debt = 3 * vs;   /* (a hitch: not caught up all at once) */
+            } else {
+                debt = vs;
+            }
+            last = now;
+            int steps = (int)(debt / vs);
+            steps = steps < 1 ? 1 : steps > 2 ? 2 : steps;
+            debt -= steps * vs;
+            if (debt < -vs) debt = -vs;
+            if (mode == -1) {
+                G32(hos_mkw_pacer + 0x210) = (uint32_t)steps;
+            } else {   /* (c: the pacer held at 1, its own 30 fps limiter out of it; the clock given the extra vsyncs) */
+                G32(hos_mkw_pacer + 0x210) = 1;
+                if (steps > 1) G32(0x837e8438) += (uint32_t)(steps - 1);
+            }
+            static int64_t n1, n2, since;
+            static uint32_t clock0;
+            if (steps == 1) n1++; else n2++;
+            if (!since) since = now, clock0 = G32(0x837e8438);
+            if (now - since > 5000000000LL) {   /* (the game's clock against real time: 60 vsyncs a second is its real speed) */
+                const uint32_t clock = G32(0x837e8438);
+                hos_log("vi: real-time steps (%c): %lld frames of 1 vsync, %lld of 2; the game's clock ran %.1f vsyncs a second",
+                        mode == -1 ? 'a' : 'c', (long long)n1, (long long)n2, (double)(clock - clock0) * 1e9 / (double)(now - since));
+                clock0 = clock, n1 = n2 = 0, since = now;
+            }
+        }
     }
     if (!window_start) window_start = now;
     frames_in_window++;
