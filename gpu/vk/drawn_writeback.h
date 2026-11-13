@@ -21,6 +21,13 @@ inline bool noted(uint64_t gpu, uint64_t guest_size, uint32_t levels) {
     return gpu < (1ull << 40) && guest_size && guest_size <= kMaxBytes && levels > 1;
 }
 
+// (blueshell) Mario Kart World's motion networks: the CPU reads the small RGBA16F images they write each frame (14x1,
+// 8x98, 7x122 and such, three of each) for rods, lines and hanging things, Lakitu's light among them (mkw-recomp 27781e3).
+// Drawn every frame, one level: the rule above never takes them. These go back after every drawing, straight into memory
+inline bool motion(uint64_t gpu, uint64_t guest_size, uint32_t levels, uint32_t width, bool rgba16f) {
+    return gpu < (1ull << 40) && guest_size && guest_size <= (64u << 10) && levels == 1 && width <= 32 && rgba16f;
+}
+
 enum class When { Wait, Now, Never };
 
 // A noted texture at a frame's start. Never: the GPU's contents are gone (uploaded over, or only a clear, which a font

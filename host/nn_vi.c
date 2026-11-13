@@ -527,15 +527,23 @@ void hos_vi_native_presented(const int64_t phases[4]) {
         if (hos_mkw_pacer && (mode == -1 || mode == -3)) {
             static int64_t last, debt;
             const int64_t vs = 1000000000LL / 60;
+            /* (blueshell) HOS_MKW_MAX_STEP=<2-4>: the most vsyncs one frame may step (default 2), so the game keeps real
+               speed below 30 fps too */
+            static int max_step;
+            if (!max_step) {
+                const char *e = getenv("HOS_MKW_MAX_STEP");
+                max_step = e ? atoi(e) : 2;
+                max_step = max_step < 2 ? 2 : max_step > 4 ? 4 : max_step;
+            }
             if (last) {
                 debt += now - last;
-                if (debt > 3 * vs) debt = 3 * vs;   /* (a hitch: not caught up all at once) */
+                if (debt > (max_step + 1) * vs) debt = (max_step + 1) * vs;   /* (a hitch: not caught up all at once) */
             } else {
                 debt = vs;
             }
             last = now;
             int steps = (int)(debt / vs);
-            steps = steps < 1 ? 1 : steps > 2 ? 2 : steps;
+            steps = steps < 1 ? 1 : steps > max_step ? max_step : steps;
             debt -= steps * vs;
             if (debt < -vs) debt = -vs;
             if (mode == -1) {

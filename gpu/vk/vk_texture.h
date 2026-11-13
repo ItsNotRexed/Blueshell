@@ -71,6 +71,7 @@ struct Texture {
     uint64_t first_written = 0;    // (the frame its GPU contents began: written in that frame alone, a table the game baked)
     uint64_t written_back_for = 0; // (the last_written its texels went into guest memory for: drawn_writeback.h)
     bool writeback_noted = false;  // (in the list of textures waiting for that)
+    bool motion_wb = false;        // (blueshell: an MKW motion network's output, written back after every drawing: drawn_writeback::motion)
     uint64_t written_back_hash = 0; // (its memory's hash after that write-back: still its own texels there, or the CPU's since)
     uint64_t verify_hash = 0;      // (RX_VK_VERIFY_DIM: its guest memory's hash when last uploaded)
     uint32_t checked_epoch = 0;

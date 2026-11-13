@@ -119,6 +119,13 @@ def main():
     for e in events:
         tot[int(kinds[e[1]])] += 1
     print("events: %d on the game's frames, %d on made frames" % (tot[0], tot[1]))
+    # (blueshell) by size: a whole-screen flash is 144 blocks; small ones are mostly motion. One per frame (its largest)
+    by_frame = {}
+    for e in events:
+        if not kinds[e[1]]:
+            by_frame[e[1]] = max(by_frame.get(e[1], 0), e[3])
+    print("flash frames by blocks: >=100 %d, >=50 %d, >=20 %d (of %d frames)" % (
+        sum(c >= 100 for c in by_frame.values()), sum(c >= 50 for c in by_frame.values()), sum(c >= 20 for c in by_frame.values()), n))
     for size, i, sign, c, peak in events[:24]:
         print("frame %d (%s) %s %d blocks, peak %.0f, at %.2f s" % (i, "made" if kinds[i] else "game", "brighter" if sign > 0 else "darker",
                                                                      c, peak, (ts[i] - ts[0]) / 1e9))

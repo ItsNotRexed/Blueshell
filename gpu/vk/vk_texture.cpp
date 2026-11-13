@@ -2500,7 +2500,13 @@ int64_t pass_barriers_relaxed() { return st_pass_relaxed.load(std::memory_order_
 bool game_order() {
     static const bool on = [] {
         const char* e = getenv("RX_VK_GAME_ORDER");
+#ifdef RX_GAME_MKW
+        // (blueshell) off for MKW: its barriers leave gaps the console's ordering covered; with it on, 15 whole-screen
+        // flash frames (one draw exploding) in 4 min of attract demos, off 1; 40.4 fps against 39.2 (night A/B 2026-11-13)
+        const bool v = e ? !env_value_off(e) : false;
+#else
         const bool v = e ? !env_value_off(e) : dev.props.vendorID == 0x10de;
+#endif
         logf("vk: passes and dispatches right after others ordered by the game's barriers: %s (RX_VK_GAME_ORDER%s)",
              v ? "on" : "off", e ? " set" : v ? "=0: off" : "=1: on");
         return v;
@@ -3297,6 +3303,8 @@ struct Flush {
     bool only_untouched = false;   // (drawn_writeback.h: only into memory still all zero, or holding its own last write-back)
     bool touched = false;          // (and it was neither, or a guest thread wrote it during the write: the CPU's, nothing written)
     uint64_t written_hash = 0;     // (and when written: the hash of its memory as the write left it)
+    bool keep_cpu = true;          // (pages the CPU wrote since the GPU keep the CPU's bytes; off for MKW's motion images, whose
+                                   // pages this write-back itself wrote last frame)
 };
 // (cached host memory, which the CPU reads: the sequential-write kind is write-combined, or VRAM behind the BAR, and every read
 // of it by the unswizzle goes over PCIe uncached. RX_VK_FLUSH_UNCACHED=1: as before)
@@ -3392,7 +3400,7 @@ bool flush_finish(Flush& f, bool gpu_ok) {
     // for scene data and then invalidates a range of it: this wrote the whole texture back over that data, and its
     // SceneLowPriority thread read texels as pointers (an access violation at 0xffffffffffffffff)
     std::vector<std::pair<uint64_t, uint64_t>> cpu_runs;   // (offsets from t.gpu)
-    if (ok && t.gpu < (1ull << 40)) memory_written_runs(t.gpu, t.guest_size, t.gpu_gen, cpu_runs);
+    if (ok && f.keep_cpu && t.gpu < (1ull << 40)) memory_written_runs(t.gpu, t.guest_size, t.gpu_gen, cpu_runs);
     uint64_t kept_cpu = 0;
     // (and only into the pages being remapped: those are what the texture's content would be lost from. The rest of it stays where
     // the game may have put other things since. The watch above does not catch all of those: OoT's SceneLowPriority crash, walking
@@ -3543,8 +3551,19 @@ bool drawn_writeback_on() {
     static const bool on = !env_on("RX_VK_NO_DRAWN_WRITEBACK");
     return on;
 }
+bool motion_writeback(const Texture* tex) {   // (blueshell: drawn_writeback::motion; RX_VK_NO_MOTION_WB=1: off)
+#ifdef RX_GAME_MKW
+    static const bool on = !env_on("RX_VK_NO_MOTION_WB");
+    return on && drawn_writeback::motion(tex->gpu, tex->guest_size, tex->levels, tex->width,
+                                         tex->format == VK_FORMAT_R16G16B16A16_SFLOAT);
+#else
+    (void)tex;
+    return false;
+#endif
+}
 void drawn_writeback_note(Texture* tex) {
-    if (tex->writeback_noted || !drawn_writeback_on() || !drawn_writeback::noted(tex->gpu, tex->guest_size, tex->levels)) return;
+    if (tex->writeback_noted || !drawn_writeback_on()) return;
+    if (!tex->motion_wb && !drawn_writeback::noted(tex->gpu, tex->guest_size, tex->levels)) return;
     tex->writeback_noted = true;
     std::lock_guard lk(drawn_mu);
     drawn_noted.push_back({tex->gpu, tex});
@@ -3588,14 +3607,18 @@ void drawn_writeback_finish() {
         for (size_t i = 0; i < batch.fs.size(); i++) {
             Flush& f = batch.fs[i];
             // (drawn or uploaded over since the copy, or another image drawn over its storage: the copy is not its content)
-            if (!ts[i] || !f.t->gpu_written || f.t->only_cleared || f.t->last_written != batch.was[i].last_written ||
-                (other[i] && other[i] >= f.t->last_written)) {
+            // (a motion image is drawn again every frame: its copy is the newest the CPU can have, and goes in all the same)
+            const bool motion = ts[i] && f.t->motion_wb;
+            if (!ts[i] || !f.t->gpu_written || f.t->only_cleared ||
+                (!motion && f.t->last_written != batch.was[i].last_written) ||
+                (other[i] && other[i] >= (motion ? batch.was[i].last_written : f.t->last_written))) {
                 if (f.buf) destroy_buffer(f.buf, f.alloc);
                 dropped++;
                 continue;
             }
             f.ok = flush_finish(f, true);
-            f.t->written_back_for = f.t->last_written;   // (written, or the CPU's memory now: not tried again for this drawing)
+            // (written, or the CPU's memory now: not tried again for this drawing; a motion image's, the drawing copied)
+            f.t->written_back_for = motion ? batch.was[i].last_written : f.t->last_written;
             if (!f.ok) {
                 (f.touched ? left_cpu : failed)++;
                 continue;
@@ -3632,8 +3655,13 @@ void drawn_writeback_frame() {
     DrawnBatch batch{rec_value, frame_no, {}, {}};
     for (size_t i = 0; i < cands.size(); i++) {
         Texture* t = cands[i].second;
-        const drawn_writeback::When when = drawn_writeback::due(frame_no, t->first_written, t->last_written, t->written_back_for,
-                                                                t->gpu_written, t->only_cleared, other[i]);
+        drawn_writeback::When when = drawn_writeback::due(frame_no, t->first_written, t->last_written, t->written_back_for,
+                                                          t->gpu_written, t->only_cleared, other[i]);
+        if (t->motion_wb)   // (each drawing, at the next frame's start: the drawing's recordings are before this one)
+            when = !t->gpu_written || t->only_cleared || t->written_back_for == t->last_written ||
+                           (other[i] && other[i] > t->last_written)
+                       ? drawn_writeback::When::Never
+                       : drawn_writeback::When::Now;
         if (when == drawn_writeback::When::Wait) {
             wait.push_back(cands[i]);
             continue;
@@ -3641,7 +3669,8 @@ void drawn_writeback_frame() {
         t->writeback_noted = false;
         if (when == drawn_writeback::When::Now && flushable(*t)) {
             Flush f{t, t->gpu, t->gpu + t->guest_size};
-            f.only_untouched = true;
+            f.only_untouched = !t->motion_wb;
+            f.keep_cpu = !t->motion_wb;
             batch.fs.push_back(std::move(f));
         }
     }
@@ -3761,6 +3790,13 @@ void texture_written(Texture* tex, const char* why) {
     watch_tex(tex, "written");
     if (!tex->gpu_written || tex->released) tex->first_written = frame_no, drawn_writeback_note(tex);
     tex->last_written = frame_no;
+    if ((tex->motion_wb = motion_writeback(tex))) {   // (blueshell: noted again for each drawing)
+        static int told;
+        if (!tex->writeback_noted && told < 40 && tex->written_back_for == 0)
+            told++, logf("vk: motion image #%u %#llx %ux%u, %llu bytes: written back after each drawing", tex->id,
+                         (unsigned long long)tex->gpu, tex->width, tex->height, (unsigned long long)tex->guest_size);
+        drawn_writeback_note(tex);
+    }
     tex->gpu_written = true;
     tex->gpu_gen = memory_generation();
     tex->released = false;
