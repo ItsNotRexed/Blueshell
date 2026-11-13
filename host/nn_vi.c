@@ -513,7 +513,8 @@ void hos_vi_native_presented(const int64_t phases[4]) {
            1: a steady 60 fps step (the game slows below 60); 2: 30; 0: the game's choice (25-27 fps, stutters).
            (blueshell, from mkw-recomp) a: each frame's interval the vsyncs that really went by since the last present (1 or 2,
            the remainder carried), as the game's own 30 fps mode steps; c: the pacer held at 1 and the clock given the extra
-           vsyncs. With no switch: the Insert menu's Game speed, Real time (the default) c, Per frame 1 */
+           vsyncs (the clock keeps time but races do not follow it: half speed at 33 fps). With no switch: the Insert menu's Game speed,
+           Real time (the default) a, Per frame 1 */
         static int forced = -2;
         if (forced == -2) {
             const char *e = getenv("HOS_MKW_INTERVAL");
@@ -521,7 +522,7 @@ void hos_vi_native_presented(const int64_t phases[4]) {
         }
         int rx_option(int id, int otherwise);
         int mode = forced;
-        if (mode == -4) mode = rx_option(0, 1) ? -3 : 1;
+        if (mode == -4) mode = rx_option(0, 1) ? -1 : 1;   /* (a: real speed measured, a battle timer 26 s in 27.8 s at ~33 fps; c ran at half) */
         if (hos_mkw_pacer && mode >= 0 && mode <= 2) G32(hos_mkw_pacer + 0x210) = (uint32_t)mode;
         if (hos_mkw_pacer && (mode == -1 || mode == -3)) {
             static int64_t last, debt;
