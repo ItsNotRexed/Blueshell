@@ -1256,6 +1256,9 @@ def make_prompts(a, incremental=False):
 
 
 def generate(a):
+    if not os.path.isfile(os.path.join(a.romfs, "Pack", "ZsDic.pack.zs")):   # (blueshell: Ocarina's font and layouts, not in MKW)
+        print("prompts: this game has no Pack/ZsDic.pack.zs: its own button icons are kept", flush=True)
+        return
     dictionary = zs_dictionary(a.romfs)
     game_font = read_zs(a.romfs, FONT, dictionary)
     key, otf = unwrap(game_font)

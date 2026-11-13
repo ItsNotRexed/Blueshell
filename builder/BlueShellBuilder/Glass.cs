@@ -4,7 +4,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using Microsoft.Win32;
 
-namespace HookshotBuilder;
+namespace BlueShellBuilder;
 
 /// Windows 11's acrylic behind the window, dark title colours and round corners (DWM). Windows 10 has none of it, and
 /// neither does a light Windows: both get the plain Slate window, which the light palette is made for.

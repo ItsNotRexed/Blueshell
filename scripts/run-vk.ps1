@@ -13,7 +13,7 @@ if (-not $Force) {
     if (Get-Process RainbowSix, RainbowSix_BE, RainbowSix_Vulkan -ErrorAction SilentlyContinue) {
         "a game is running (Rainbow Six): no test run now"; exit 2
     }
-    $other = Get-Process mkw, hookshot -ErrorAction SilentlyContinue
+    $other = Get-Process mkw, hookshot, blueshell -ErrorAction SilentlyContinue
     if ($other) { "another game run is going ($(($other | ForEach-Object { "$($_.Name).exe $($_.Id)" }) -join ', ')): one at a time"; exit 2 }
 }
 if (-not $Romfs) {   # (the dump's romfs, from work\dump.txt: nx2/dump.py --set)
@@ -22,7 +22,7 @@ if (-not $Romfs) {   # (the dump's romfs, from work\dump.txt: nx2/dump.py --set)
     $dump = (Get-Content $cfg | Where-Object { $_ -and -not $_.StartsWith("#") } | Select-Object -First 1).Trim()
     $Romfs = Join-Path $dump "romfs"
 }
-$exe = Join-Path $root "work\sa\build\hookshot.exe"
+$exe = Join-Path $root "work\sa\build\blueshell.exe"
 $image = Join-Path $root "work\sa\image\image.bin"
 $user = Join-Path $root "work\sa\user"
 $out = Join-Path $root "work\runs\$Name"

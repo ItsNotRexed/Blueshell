@@ -21,6 +21,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#ifndef HOS_GAME_TITLE
+#define HOS_GAME_TITLE "BlueShell"   /* (blueshell: host/hos.h names it; this file does not include it) */
+#endif
 
 #ifdef _WIN32
 #include <windows.h>
@@ -35,7 +38,7 @@
 
 #include "../gpu/vk/vk_api.h"
 
-#define HOOKSHOT_DISCORD_APP_ID_DEFAULT "1569529153349357731"   /* (the Hookshot application's id, digits) */
+#define HOOKSHOT_DISCORD_APP_ID_DEFAULT ""   /* (blueshell) none yet: Hookshot's id would show "Playing Hookshot" */
 #define HOOKSHOT_DISCORD_IMAGE_DEFAULT "hookshot"     /* (its large-image art asset key) */
 
 void hos_log(const char *fmt, ...);
@@ -225,8 +228,8 @@ static int send_activity(Ipc p, long long started) {
     version[strcspn(version, " +")] = 0;   /* ("v2.0.12 (source ...)": the release alone) */
     snprintf(json, sizeof json,
              "{\"cmd\":\"SET_ACTIVITY\",\"nonce\":\"%u\",\"args\":{\"pid\":%lu,\"activity\":{\"details\":\"Ocarina of Time\","
-             "\"state\":\"Hookshot %s\",\"timestamps\":{\"start\":%lld},\"assets\":{\"large_image\":\"%s\",\"large_text\":"
-             "\"Hookshot %s\"}}}}",
+             "\"state\":\"" HOS_GAME_TITLE " %s\",\"timestamps\":{\"start\":%lld},\"assets\":{\"large_image\":\"%s\",\"large_text\":"
+             "\"" HOS_GAME_TITLE " %s\"}}}}",
              ++nonce, process_id(), version, started, HOOKSHOT_DISCORD_IMAGE_DEFAULT, version);
     if (!write_frame(p, OP_FRAME, json)) return 0;
     uint32_t op = 0;

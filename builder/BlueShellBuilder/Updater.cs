@@ -6,17 +6,17 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Windows;
 
-namespace HookshotBuilder;
+namespace BlueShellBuilder;
 
 /// The game's update offer (host/hos_update.c) starts this app with --update <game folder> --tag <release>. When these tools are
-/// not that release, the release's HookshotBuilder.zip is downloaded and unpacked beside this app, and the new app is started with
+/// not that release, the release's BlueShellBuilder.zip is downloaded and unpacked beside this app, and the new app is started with
 /// --fetched to build the folder; when they are, the folder is built again here (nx2/make_game.py --update: from the game files the
 /// folder keeps).
 static class Updater
 {
-    const string Latest = "https://api.github.com/repos/NotRexed/Hookshot/releases/latest";
-    const string Asset = "HookshotBuilder.zip";
-    const string SetupAsset = "HookshotBuilder.exe";            // (the setup, builder/setup/setup.c: a release holds it and its list)
+    const string Latest = "https://api.github.com/repos/NotRexed/BlueShell/releases/latest";
+    const string Asset = "BlueShellBuilder.zip";
+    const string SetupAsset = "BlueShellBuilder.exe";            // (the setup, builder/setup/setup.c: a release holds it and its list)
     const string SetupList = "hookshot-setup.txt";              // (scripts/make_setup_parts.py)
     static readonly TimeSpan[] RetryDelays = { TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(20) };
 
@@ -38,7 +38,7 @@ static class Updater
     // ---- the update tracks (the Track menu; by default the track of these tools). host/hos_update.c and
     // builder/linux/linux_update.py have the same rules ----
     public const string Release = "release", Candidate = "rc", Nightly = "nightly";
-    const string Releases = "https://api.github.com/repos/NotRexed/Hookshot/releases";
+    const string Releases = "https://api.github.com/repos/NotRexed/BlueShell/releases";
     static readonly System.Text.RegularExpressions.Regex NightlyName = new(@"-\d+-g[0-9a-f]+(-dirty)?$");
     static readonly System.Text.RegularExpressions.Regex ReleaseName = new(@"^v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$");
 
@@ -86,14 +86,14 @@ static class Updater
     {
         if (track == Release) return await LatestTag();
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("HookshotBuilder");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("BlueShellBuilder");
         if (track == Nightly)
         {
             for (var attempt = 0; attempt < 2; attempt++)
             {
                 try
                 {
-                    var list = await http.GetStringAsync("https://github.com/NotRexed/Hookshot/releases/download/nightly/" + SetupList);
+                    var list = await http.GetStringAsync("https://github.com/NotRexed/BlueShell/releases/download/nightly/" + SetupList);
                     foreach (var line in list.Split('\n'))
                         if (line.StartsWith("tag ")) return line[4..].Trim();
                 }
@@ -128,7 +128,7 @@ static class Updater
     public static async Task<string?> LatestTag()
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("HookshotBuilder");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("BlueShellBuilder");
         for (var attempt = 0; attempt < 3; attempt++)
         {
             try
@@ -152,7 +152,7 @@ static class Updater
         {
             try
             {
-                var list = await http.GetStringAsync("https://github.com/NotRexed/Hookshot/releases/latest/download/" + SetupList);
+                var list = await http.GetStringAsync("https://github.com/NotRexed/BlueShell/releases/latest/download/" + SetupList);
                 foreach (var line in list.Split('\n'))
                     if (line.StartsWith("tag ")) return line[4..].Trim();
             }
@@ -162,7 +162,7 @@ static class Updater
         return null;
     }
 
-    /// The latest release's setup (HookshotBuilder.exe) downloaded and started with args: it installs the new builder (only the
+    /// The latest release's setup (BlueShellBuilder.exe) downloaded and started with args: it installs the new builder (only the
     /// parts that changed) and starts it with the same args; this one closes. (no args: the new builder opens as it does) A tag of
     /// another track (or a release asked for by a switch of track): that release's setup, told to install it (--tag)
     public static async Task RunLatestSetup(MainWindow w, IEnumerable<string> args, string? tag = null, bool named = false)
@@ -171,7 +171,7 @@ static class Updater
         else tag = null;
         var token = w.DownloadToken;
         using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("HookshotBuilder");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("BlueShellBuilder");
         w.Note("Asking GitHub for the latest release");
         string? setupUrl = null, setupApiUrl = null, setupDigest = null;
         long setupSize = 0;
@@ -190,7 +190,7 @@ static class Updater
         var cache = Path.Combine(BuilderHome.Base, "update");
         Directory.CreateDirectory(cache);
         var setup = Path.Combine(cache, SetupAsset);
-        w.Note("Downloading the new Hookshot Builder");
+        w.Note("Downloading the new BlueShell Builder");
         await DownloadWithRetries(w, http, setupUrl, setupApiUrl, setup, setupSize, setupDigest, token);
         var si = new ProcessStartInfo(setup) { UseShellExecute = false, WorkingDirectory = cache };
         foreach (var arg in args) si.ArgumentList.Add(arg);
@@ -207,7 +207,7 @@ static class Updater
         var tools = Tools.Find();
         if (tools == null)
         {
-            w.DownloadFailed("The Hookshot tools were not found next to this app.");
+            w.DownloadFailed("The BlueShell tools were not found next to this app.");
             return;
         }
         // (just downloaded, but another release than asked for: the setup installed the release before it (GitHub's latest link lags
@@ -227,7 +227,7 @@ static class Updater
         {
             var token = w.DownloadToken;
             using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("HookshotBuilder");
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("BlueShellBuilder");
             w.Note("Asking GitHub for the latest release");
             string? newTag = null, url = null, setupUrl = null;
             string? apiUrl = null, setupApiUrl = null;
@@ -269,7 +269,7 @@ static class Updater
             }
             var name = string.Concat(newTag.Where(c => char.IsLetterOrDigit(c) || c == '-' || c == '_' || c == '.'));
             // (hookshot) the name is a folder under builders\ that the update replaces: "..", "." or a name with a leading dot
-            // would be the HookshotBuilder folder itself or not a version (the same rule as the setup's and Linux's lists)
+            // would be the BlueShellBuilder folder itself or not a version (the same rule as the setup's and Linux's lists)
             if (name.Length == 0 || name.Length > 128 || name[0] == '.')
                 throw new InvalidOperationException("The latest release's tag is not a version name.");
             var cache = Path.Combine(BuilderHome.Base, "update");
@@ -289,7 +289,7 @@ static class Updater
                 return;
             }
             if (url == null) throw new InvalidOperationException("The latest release has no " + Asset + ".");
-            var zip = Path.Combine(cache, "HookshotBuilder-" + name + ".zip");
+            var zip = Path.Combine(cache, "BlueShellBuilder-" + name + ".zip");
             w.Note($"Downloading {Asset} of {newTag} ({size >> 20} MB)");
             await DownloadWithRetries(w, http, url, apiUrl, zip, size, digest, token, w.DownloadProgress);
             w.Note("Unpacking the new version");
@@ -302,15 +302,15 @@ static class Updater
             }
             else try
             {
-                target = await Unpack(zip, Path.Combine(parent, "HookshotBuilder " + name));
+                target = await Unpack(zip, Path.Combine(parent, "BlueShellBuilder " + name));
             }
             catch (Exception e) when (e is UnauthorizedAccessException or IOException)
             {
                 target = await Unpack(zip, Path.Combine(Path.GetDirectoryName(cache)!, "builders", name));
             }
             try { File.Delete(zip); } catch (Exception) { }
-            var exe = Path.Combine(target, "HookshotBuilder.exe");
-            if (!File.Exists(exe)) throw new FileNotFoundException("The download has no HookshotBuilder.exe (your antivirus may have removed it).");
+            var exe = Path.Combine(target, "BlueShellBuilder.exe");
+            if (!File.Exists(exe)) throw new FileNotFoundException("The download has no BlueShellBuilder.exe (your antivirus may have removed it).");
             var si = new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = target };
             foreach (var arg in new[] { "--update", folder, "--tag", newTag, "--fetched" }) si.ArgumentList.Add(arg);
             BuilderHome.PassTo(si);
@@ -472,13 +472,13 @@ static class Updater
     static string StatusDetail(Exception? error) =>
         error is HttpRequestException { StatusCode: { } status } ? $" (HTTP {(int)status})" : "";
 
-    /// The zip's HookshotBuilder folder, as target (an older one there replaced)
+    /// The zip's BlueShellBuilder folder, as target (an older one there replaced)
     static async Task<string> Unpack(string zip, string target)
     {
         var part = target + ".part";
         if (Directory.Exists(part)) Directory.Delete(part, true);
         await Task.Run(() => ZipFile.ExtractToDirectory(zip, part));
-        var inner = Path.Combine(part, "HookshotBuilder");
+        var inner = Path.Combine(part, "BlueShellBuilder");
         if (Directory.Exists(target)) Directory.Delete(target, true);
         Directory.Move(Directory.Exists(inner) ? inner : part, target);
         if (Directory.Exists(part)) Directory.Delete(part, true);

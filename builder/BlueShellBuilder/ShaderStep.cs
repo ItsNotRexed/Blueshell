@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace HookshotBuilder;
+namespace BlueShellBuilder;
 
 /// The build's last step, the shaders' preparation (nx2/make_game.py prepare_shaders): the argument that leaves it to the game's
 /// first start, and what its row says once the build is done

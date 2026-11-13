@@ -7,7 +7,7 @@
 #include <wchar.h>
 
 #define HB_HOME_MARKER L".hookshot-portable"
-#define HB_HOME_MAGIC "Hookshot Builder portable home v1"
+#define HB_HOME_MAGIC "BlueShell Builder portable home v1"
 #define HB_GAME_HOME L".hookshot_builder_home"
 
 typedef struct { wchar_t root[MAX_PATH]; int portable; } HbHome;
@@ -174,7 +174,7 @@ static int hb_home_discover(HbHome *home, const wchar_t *requested, const wchar_
     /* The original setup remains beside its dedicated data folder after --portable's first invocation. */
     if (!game_launcher) {
         wchar_t sibling[MAX_PATH];
-        if (hb_home_join(sibling, MAX_PATH, setup_directory, L"HookshotBuilder")) {
+        if (hb_home_join(sibling, MAX_PATH, setup_directory, L"BlueShellBuilder")) {
             int marked = hb_home_marked(sibling);
             if (marked < 0) return 0;
             if (marked) { wcscpy(home->root, sibling); home->portable = 1; return 1; }

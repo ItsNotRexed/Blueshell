@@ -1661,8 +1661,24 @@ int ask_sel = 0;   // (the restart question's choice: 0 Later, 1 Restart now)
 /// runs); HDR's paper white, peak brightness and contrast only with HDR on. A row that comes or goes moves those after it: the
 /// selection is a place on its tab (tab_selected), so a row hidden after the selected one leaves the selection where it is,
 /// and menu_tick brings back one past the end
+#ifdef RX_GAME_MKW
+/// (blueshell) the rows that act through Ocarina's own code (nx2/oot_*.py patches, host/oot_*.c, the Debug tools' Link
+/// cheats) or point at Hookshot's tracker: nothing in Mario Kart World answers them, so they are not shown
+bool oot_only_row(int i) {
+    static const char* const names[] = {"Field of view", "Text speed", "Text size", "Skip opening", "Ultrawide menus",
+                                        "Disable camera centering", "Mouse camera", "Mouse sensitivity",
+                                        "Invert mouse vertical", "Camera speed", "Debug tools", "Bug report"};
+    if (rows[i].cheat >= 0) return true;
+    for (const char* n : names)
+        if (rows[i].name && !strcmp(rows[i].name, n)) return true;
+    return false;
+}
+#endif
 bool row_shown(int i) {
     const int* v = rows[i].value;
+#ifdef RX_GAME_MKW
+    if (oot_only_row(i)) return false;
+#endif
     return (rows[i].cheat < 0 || cheats_on()) && (v != &opts.reflex || reflex_available()) &&
            (v != &opts.antilag || antilag_available()) &&
            (v != &opts.dlss || ur::upscaler_shown(upscalers_available())) &&

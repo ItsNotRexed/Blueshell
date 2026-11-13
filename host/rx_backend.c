@@ -299,7 +299,7 @@ static const MkwVkRenderer *load_vulkan(const char *dll) {
 int rx_start(void *hwnd) {
     const char *b = getenv("RX_BACKEND");
     if (!b || !_stricmp(b, "vulkan")) {   /* (hookshot: Vulkan unless told otherwise; a started game has no RX_BACKEND) */
-        const char *dll = "hookshot_vk.dll";
+        const char *dll = "blueshell_vk.dll";
         const MkwVkRenderer *r = load_vulkan(dll);
         if (r && r->start(hwnd)) {
             vk = r;
@@ -316,7 +316,7 @@ int rx_start(void *hwnd) {
 /* (hookshot) hookshot --prepare-shaders: the Vulkan back end started with no window and no game, which prepares
    every shader in its start (gpu/vk/vk_main.cpp started_up) and is then let go. 0 when there is no usable Vulkan */
 int rx_prepare_shaders(void) {
-    const MkwVkRenderer *r = load_vulkan("hookshot_vk.dll");
+    const MkwVkRenderer *r = load_vulkan("blueshell_vk.dll");
     return r && r->start(NULL);
 }
 /* (hookshot) the window is being closed: a back end still preparing its shaders stops and keeps what it made first (a few

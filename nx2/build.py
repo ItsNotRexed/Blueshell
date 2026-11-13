@@ -66,8 +66,8 @@ PGO = os.environ.get("RX_PGO", "")
 LINUX = not toolchain.windows()   # (hookshot: RX_TARGET=windows on Linux builds the Windows game, with llvm-mingw)
 POSIX = os.path.join(kit.HERE, "..", "host", "posix")
 SYSROOT = os.environ.get("HOOKSHOT_SYSROOT", "")
-EXE = "hookshot" if LINUX else "hookshot.exe"
-VK_LIB = "hookshot_vk.so" if LINUX else "hookshot_vk.dll"
+EXE = "blueshell" if LINUX else "blueshell.exe"   # (blueshell: not hookshot.exe, which other sessions' run checks mean as Ocarina)
+VK_LIB = "blueshell_vk.so" if LINUX else "blueshell_vk.dll"
 
 
 def check_vk_symbols(so):
@@ -1090,7 +1090,7 @@ def main():
         sum(1 for x in srcs if os.path.basename(x).startswith("code_"))), flush=True)
     # the runtime: ordinary C at -O2, with its own headers (any host/*.h change rebuilds all of it)
     host_fl = target() + CPU + (["-I" + POSIX, "-D_GNU_SOURCE"] if LINUX else []) + \
-        ["-I" + HOST, "-I" + rt64, "-I" + gen, "-Wno-everything", "-O2", "-g0", "-mcx16", "-DA64_POLLING"] + WRITE_TRACK
+        ["-I" + HOST, "-I" + rt64, "-I" + gen, "-Wno-everything", "-O2", "-g0", "-mcx16", "-DA64_POLLING", "-DRX_GAME_MKW"] + WRITE_TRACK
     host_deps = deps + b"".join(open(os.path.join(HOST, f), "rb").read() for f in sorted(os.listdir(HOST))
                                 if f.endswith(".h"))
     if LINUX:
@@ -1181,7 +1181,7 @@ def main():
             # (what the code takes for granted, which newer C++ libraries bring in by themselves and older ones do not: issue 48)
             "-include", "algorithm", "-include", "cstdio", "-include", "cstdlib", "-include", "cstring", "-include", "functional",
             "-include", "string", "-include", "vector",
-            "-std=c++20", "-O2", "-g0", "-DNDEBUG", "-Wno-everything", "-DVK_NO_PROTOTYPES", "-DMKWVK_BUILDING",
+            "-std=c++20", "-O2", "-g0", "-DNDEBUG", "-Wno-everything", "-DVK_NO_PROTOTYPES", "-DMKWVK_BUILDING", "-DRX_GAME_MKW",   # (blueshell: Mario Kart World; Ocarina-only menu rows hidden)
             *(["-DHOOKSHOT_RELEASE"] if os.environ.get("RX_RELEASE") == "1" else []),   # (the shaders precompiled before the game)
             # (Eden's recompiler before suyu's root: suyu has its own shader_recompiler/ headers, and a Shader::Info
             # of the other layout in some objects is what crashed the descriptor walk. MKWVK_INCLUDES changes the
@@ -1352,7 +1352,7 @@ def main():
             import shutil
             shutil.copyfile(sdl, os.path.join(out, "libSDL2-2.0.so.0"))
     elif a.standalone and not vk_only:
-        exe = os.path.join(out, "hookshot.exe")   # (+ hookshot.map: crash offsets -> f_<guest address>)
+        exe = os.path.join(out, EXE)   # (+ hookshot.map: crash offsets -> f_<guest address>)
         t = time.time()
         r = subprocess.run([cc] + toolchain.native_target() + toolchain.native_link() +
                            ["-o", exe] + linker("/map:" + exe[:-4] + ".map") + [toolchain.link_opt("/stack:8388608"), "@" + rsp] + HOT_ORDER() + HOST_LIBS +

@@ -4,7 +4,7 @@
     python -I nx2/make_game.py --romfs <dir> --exefs <dir> --out <folder> [--work <folder>] [--jobs <n>]
     python -I nx2/make_game.py --check --nup <file.nup>       (or --exefs <dir>: is this the right game and version?)
     python -I nx2/make_game.py --update <folder>             (a folder built before, again with these tools: the game files it keeps)
-    python -I nx2/make_game.py --game <.nup or folder> --prepare   (RecompLauncher: --out defaults to ~/Games/Hookshot; no window,
+    python -I nx2/make_game.py --game <.nup or folder> --prepare   (RecompLauncher: --out defaults to ~/Games/BlueShell; no window,
                                                                     "progress <0..1> <text>" lines and an "error <text>" line on stdout,
                                                                     exit 0 when the game is built; with --check, its "check ok|bad" line)
 
@@ -47,7 +47,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 PY = [sys.executable, "-I", "-u", "-X", "utf8"]   # (utf8: every step's output in UTF-8 whatever the console's code page: lift.py crashed on a letter, #180)   # (-u: the steps' output as it comes, not in 8 KB blocks minutes apart)
-BUILD_ID = "e0f3ccfa"   # (the version the patches, the hot list and the profile were made from)
+BUILD_ID = "d00e4f39"   # (blueshell: Mario Kart World 1.80's main, the build its hooks and its hot list are made from)
 STARTED = time.time()   # (the build's total time, kept in build_times.json and said as @@times)
 sys.path[:0] = [HERE, os.path.join(ROOT, "third_party", "a64-kit", "tools")]   # (python -I leaves the script folder off)
 import toolchain as _toolchain
@@ -57,7 +57,7 @@ import disk as _disk
 LINUX, CROSS = not _toolchain.windows(), _toolchain.windows() and os.name != "nt"
 # (SDL2.dll is sdl2-compat: it loads SDL3.dll from beside the exe. Left out of bin\ since v2.0.0, it said "Failed loading SDL3
 # library" three times and no controller worked: Discord #bug-reporting, 11-08)
-BESIDE = ["hookshot", "hookshot_vk.so", "libSDL2-2.0.so.0"] if LINUX else ["hookshot.exe", "hookshot_vk.dll", "SDL2.dll", "SDL3.dll", "wgpu_native.dll"]
+BESIDE = ["blueshell", "blueshell_vk.so", "libSDL2-2.0.so.0"] if LINUX else ["blueshell.exe", "blueshell_vk.dll", "SDL2.dll", "SDL3.dll", "wgpu_native.dll"]
 LANGUAGES = [("en-US", "English (US)"), ("en-GB", "English (UK)"), ("fr", "French (France)"), ("fr-CA", "French (Canada)"), ("de", "German"),
              ("it", "Italian"), ("es", "Spanish (Spain)"), ("es-419", "Spanish (Latin America)"), ("pt-BR", "Portuguese (Brazil)"), ("nl", "Dutch"),
              ("pl", "Polish"), ("ru", "Russian"), ("ja", "Japanese"), ("ko", "Korean"), ("zh-Hans", "Chinese (Simplified)"),
@@ -94,7 +94,7 @@ def say_prepare(words):
     elif words[0] == "progress" and len(words) > 1:
         lo, hi = _stage["span"]
         print("progress %.3f %s" % (lo + (hi - lo) * float(words[1]), _stage["text"]), flush=True)
-    elif words[0] in ("error", "check"):   # (on stdout, the only stream a launcher reads; HookshotBuilder --cli also takes its "error" line)
+    elif words[0] in ("error", "check"):   # (on stdout, the only stream a launcher reads; BlueShellBuilder --cli also takes its "error" line)
         print(" ".join(words), flush=True)
     elif words[0] == "done":
         print("progress 1.000 Done", flush=True)
@@ -125,8 +125,8 @@ def check_writable(out):
                      for d in protected)
         where = (" Windows protects folders under Program Files and Windows, and only lets administrators write there."
                  if inside and isinstance(e, PermissionError) else "")
-        example = "~/Games/Hookshot" if LINUX else r"C:\Games\Hookshot"
-        fail("The game folder %s can't be written to (%s).%s In Hookshot Builder, choose a game folder of your own, for example "
+        example = "~/Games/BlueShell" if LINUX else r"C:\Games\BlueShell"
+        fail("The game folder %s can't be written to (%s).%s In BlueShell Builder, choose a game folder of your own, for example "
              "%s, and build again." % (out, e.strerror or e, where, example))
 
 
@@ -159,7 +159,7 @@ def drive_error(error):
     drive = ntpath.splitdrive(path)[0] if path and code is not None else ""
     check = ('open a terminal as administrator and run "chkdsk %s /f"' % drive if re.fullmatch("[A-Za-z]:", drive)
              else "check the drive for errors")
-    return ("Your drive could not read %s: %s. This is a fault of the drive or its file system, not of Hookshot or your "
+    return ("Your drive could not read %s: %s. This is a fault of the drive or its file system, not of BlueShell or your "
             "game files. To repair it, %s, then build again. If it keeps happening the drive may be failing: build on "
             "another drive." % (path or "one of the build's files", reason, check))
 
@@ -239,7 +239,7 @@ KEEP_BUILDS = 20
 
 
 def times_path(work):
-    """Where the builds' times are kept: beside the object cache, in the builder's own folder (LOCALAPPDATA\\HookshotBuilder
+    """Where the builds' times are kept: beside the object cache, in the builder's own folder (LOCALAPPDATA\\BlueShellBuilder
     on Windows, ~/.cache/hookshot-builder on Linux). A builder update keeps it, so the next build still knows what this PC
     took, and the one after that can compare."""
     return os.path.join(work, "build_times.json")
@@ -440,18 +440,18 @@ def build_id(main):
 def check_modules(exefs):
     """Every module of the exefs is one the tools can read: said here, not as a Python error from the translator"""
     for name in os.listdir(exefs):
-        if name != "main.npdm" and not name.endswith(".part"):
+        if name != "main.npdm" and not name.endswith(".part") and not name.startswith("."):   # (blueshell: a dump tool's .listing)
             with open(os.path.join(exefs, name), "rb") as f:
                 head = f.read(16)
             if head[:4] != b"NSO0":
                 fail("The file %s in this dump is not a game module (it starts %s). Try another dump of the game, or send this message to the "
-                     "Hookshot developers." % (name, head.hex()))
+                     "BlueShell developers." % (name, head.hex()))
 
 
 def check_supported_build(exefs):
     bid = build_id(os.path.join(exefs, "main"))
     if not bid.startswith(BUILD_ID):
-        fail("This is build %s. Hookshot supports build %s." % (bid[:8], BUILD_ID))
+        fail("This is build %s. BlueShell supports build %s." % (bid[:8], BUILD_ID))
 
 
 def file_progress(verb, clock=time.monotonic):
@@ -564,7 +564,7 @@ def stand_in_damaged_files(out, romfs):
         unresolved = sum(other is None for _, other in done)
         if unresolved:
             fail("The game dump still has %d damaged file%s with no replacement. The build stopped before compiling. "
-                 "Dump the game again and select the complete dump in Hookshot Builder. The affected files are listed above." %
+                 "Dump the game again and select the complete dump in BlueShell Builder. The affected files are listed above." %
                  (unresolved, "" if unresolved == 1 else "s"))
     write_stamp(checked, checked_stamp)
     with contextlib.suppress(FileNotFoundError):
@@ -597,7 +597,7 @@ def check_cpu():
     from host_cpu import host_march
     m = host_march()
     if m != "x86-64-v3":
-        fail("Your processor has no AVX2 (it runs %s), and the AppImage's renderer needs it. Build Hookshot from source "
+        fail("Your processor has no AVX2 (it runs %s), and the AppImage's renderer needs it. Build BlueShell from source "
              "instead (see the readme): a source build follows your processor." % m)
 
 
@@ -614,9 +614,9 @@ def check(a, work):
     else:
         bid = build_id(os.path.join(a.exefs, "main"))
     if bid.startswith(BUILD_ID):
-        say("check", "ok", "This is the version Hookshot supports (build %s)." % bid[:8])
+        say("check", "ok", "This is the version BlueShell supports (build %s)." % bid[:8])
     else:
-        say("check", "bad", "This is build %s. Hookshot supports build %s." % (bid[:8], BUILD_ID))
+        say("check", "bad", "This is build %s. BlueShell supports build %s." % (bid[:8], BUILD_ID))
 
 
 def visual_studio_environment():
@@ -813,8 +813,8 @@ def bundled_mingw():
             missing = [n for n in ("clang.exe", "clang++.exe", "ld.lld.exe")
                        if not os.path.isfile(os.path.join(here, "bin", n))]
             fail("Files of the builder's own compiler are missing (%s in %s). Your antivirus most likely removed them "
-                 "(a false alarm on unsigned programs): restore them from its quarantine or allow the Hookshot Builder folder, "
-                 "then unzip HookshotBuilder.zip again and build. Visual Studio is not needed."
+                 "(a false alarm on unsigned programs): restore them from its quarantine or allow the BlueShell Builder folder, "
+                 "then unzip BlueShellBuilder.zip again and build. Visual Studio is not needed."
                  % (", ".join(missing) or "bin", os.path.join(here, "bin")))
     return os.environ.get("HOOKSHOT_MINGW", "")
 
@@ -826,7 +826,7 @@ def check_mingw():
     cc = toolchain.find("clang")   # (HOOKSHOT_MINGW's, else the one toolchain.py finds: the same as the build uses)
     if not os.path.isfile(cc):   # (HOOKSHOT_MINGW set to a folder without the compiler: said here, not as a silent SystemExit)
         fail("The builder's own compiler was not found at %s. Set HOOKSHOT_MINGW to an llvm-mingw folder, or unpack the "
-             "Hookshot Builder zip again into a folder your antivirus allows." % cc)
+             "BlueShell Builder zip again into a folder your antivirus allows." % cc)
     with tempfile.TemporaryDirectory() as d:
         src = os.path.join(d, "t.c")
         with open(src, "w") as f:
@@ -1237,7 +1237,7 @@ def drop_stale_objects(work):
     olds = {stamp_for(mine)}
     if os.path.basename(versions).lower() == "versions" and os.path.isdir(versions):
         for v in os.listdir(versions):
-            olds.add(stamp_for(os.path.normcase(os.path.join(versions, v, "HookshotBuilder", "tools")).lower()))
+            olds.add(stamp_for(os.path.normcase(os.path.join(versions, v, "BlueShellBuilder", "tools")).lower()))
     if had and had in olds:
         print("the system headers are the same as the last build's (an earlier version of the builder): its objects are reused", flush=True)
         with open(note, "w") as f:
@@ -1337,7 +1337,7 @@ def prepare_skipped(a, environ=None):
         return '"Prepare shaders now" is unticked'
     if environ.get("HOOKSHOT_NO_PREPARE", "0") != "0":   # (set and not 0, as the game reads HOOKSHOT_NO_UPDATE_CHECK)
         return "HOOKSHOT_NO_PREPARE is set"
-    if CROSS:   # (hookshot.exe can't run here, and under Wine it would prepare for this PC's GPU, not the one that plays it)
+    if CROSS:   # (blueshell.exe can't run here, and under Wine it would prepare for this PC's GPU, not the one that plays it)
         return "a Windows game built on Linux prepares them on the PC it runs on"
     return None
 
@@ -1806,7 +1806,7 @@ def ngx_script():
     path = os.path.join(ROOT, "scripts", "ngx_sdk.py")
     if not os.path.isfile(path):   # (the AppImage carries no scripts/: its Vulkan back end comes built, without DLSS)
         fail("NVIDIA DLSS (HOOKSHOT_NGX_SDK) needs %s, which this builder does not carry: its renderer is built without DLSS. "
-             "Unset HOOKSHOT_NGX_SDK, or build Hookshot from source for DLSS." % path)
+             "Unset HOOKSHOT_NGX_SDK, or build BlueShell from source for DLSS." % path)
     spec = importlib.util.spec_from_file_location("ngx_sdk", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -1818,7 +1818,7 @@ def ngx_platform():
 
 
 def fetch_ngx_sdk(a):
-    """--fetch-ngx-sdk (the Hookshot Builder's NVIDIA DLSS tick): NVIDIA's DLSS SDK into HOOKSHOT_NGX_SDK before the build, once
+    """--fetch-ngx-sdk (the BlueShell Builder's NVIDIA DLSS tick): NVIDIA's DLSS SDK into HOOKSHOT_NGX_SDK before the build, once
     NVIDIA's license was accepted (--accept-nvidia-license: the builder asked first). Only what is missing or not the file
     expected is downloaded"""
     sdk = os.environ.get("HOOKSHOT_NGX_SDK", "")
@@ -1867,7 +1867,7 @@ def ffx_folder():
 
 
 def fetch_fsr_runtime(a):
-    """--fetch-fsr-runtime (with --fsr, Windows; the Hookshot Builder's AMD FSR 4 tick): AMD's signed FSR SDK 2.4 Vulkan
+    """--fetch-fsr-runtime (with --fsr, Windows; the BlueShell Builder's AMD FSR 4 tick): AMD's signed FSR SDK 2.4 Vulkan
     runtime (scripts/ffx_sdk.py) into ffx_folder() before the build, once AMD's license was accepted (--accept-amd-license:
     the builder asked first, as for NVIDIA's), each file checked against its SHA-256; only what is missing or not the file
     expected is downloaded. Off unless asked: a build with --fsr alone downloads nothing"""
@@ -1938,12 +1938,12 @@ def portable_game_home(out):
     home = os.path.abspath(home)
     with open(os.path.join(home, ".hookshot-portable"), "rb") as f:
         marker = f.read(36)
-    magic = b"Hookshot Builder portable home v1"
+    magic = b"BlueShell Builder portable home v1"
     if len(marker) > len(magic) + 2 or marker.rstrip(b"\r\n") != magic:
         raise ValueError("The portable Builder home marker is invalid.")
     if os.path.dirname(home) == home:
         raise ValueError("The portable Builder home must be a dedicated folder.")
-    launcher = os.path.join(os.path.dirname(os.path.abspath(ROOT)), "HookshotBuilder-Setup.exe")
+    launcher = os.path.join(os.path.dirname(os.path.abspath(ROOT)), "BlueShellBuilder-Setup.exe")
     if not os.path.isfile(launcher):
         raise ValueError("A portable game needs the packaged Builder setup launcher.")
     try:
@@ -1981,14 +1981,14 @@ def parse_args():
     p.add_argument("--work", default=os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"),
                                                   "hookshot-builder-windows" if CROSS else "hookshot-builder")   # (the objects apart)
                    if os.name != "nt" else os.environ.get("HOOKSHOT_SETUP_BASE") or
-                   os.path.join(os.environ.get("LOCALAPPDATA", ROOT), "HookshotBuilder"))
+                   os.path.join(os.environ.get("LOCALAPPDATA", ROOT), "BlueShellBuilder"))
     # (HOOKSHOT_JOBS: fewer compilers on a PC short of memory; the AppImage's builds pass no --jobs)
     p.add_argument("--jobs", type=int)
     p.add_argument("--language", help="the game's language: a code from LANGUAGES, written to language.txt. Not given: the one the "
                                       "folder has; else the system's with --prepare; else en-US")
     p.add_argument("--check", action="store_true")
     p.add_argument("--game", help="your copy: a .nup file, or a folder with romfs and exefs in it (the same as --nup, or --romfs and --exefs)")
-    p.add_argument("--prepare", action="store_true", help="for RecompLauncher: no window, progress lines, --out ~/Games/Hookshot unless given")
+    p.add_argument("--prepare", action="store_true", help="for RecompLauncher: no window, progress lines, --out ~/Games/BlueShell unless given")
     p.add_argument("--update", help="a game folder built before: built again from the game files it keeps (the game's update offer)")
     p.add_argument("--no-prepare-shaders", action="store_true",
                    help="leave the shaders' preparation to the game's first start (the builder's \"Prepare shaders now\" unticked)")
@@ -2006,9 +2006,9 @@ def parse_args():
     if a.prepare:   # (first: a bad --game below is said as RecompLauncher's "error" line)
         global PREPARE
         PREPARE = True
-        a.out = a.out or (os.path.join(os.path.dirname(os.environ["HOOKSHOT_SETUP_BASE"]), "Hookshot")
+        a.out = a.out or (os.path.join(os.path.dirname(os.environ["HOOKSHOT_SETUP_BASE"]), "BlueShell")
                           if os.name == "nt" and os.environ.get("HOOKSHOT_BUILDER_PORTABLE") == "1" and
-                          os.environ.get("HOOKSHOT_SETUP_BASE") else os.path.join(os.path.expanduser("~"), "Games", "Hookshot"))
+                          os.environ.get("HOOKSHOT_SETUP_BASE") else os.path.join(os.path.expanduser("~"), "Games", "BlueShell"))
     if a.game:   # (a path from a launcher: said plainly before any folder is made, not as a traceback halfway in)
         if os.path.isdir(a.game):
             a.romfs, a.exefs = os.path.join(a.game, "romfs"), os.path.join(a.game, "exefs")
@@ -2042,7 +2042,7 @@ def warn_slow_disk(*folders):
 def end_stale_games(folders):
     """(Windows) The running processes whose exe is in one of folders (the game being updated): those with no visible window, a
     copy left behind (a shader preparation that hung, a game whose window closed but whose process did not end), are ended and
-    waited for, as their file could not be replaced while they ran ("Could not replace bin/hookshot.exe", Discord 2026-11-10).
+    waited for, as their file could not be replaced while they ran ("Could not replace bin/blueshell.exe", Discord 2026-11-10).
     Returns the process ids of those with a window, which the player is to close: a game in play is never ended."""
     if os.name != "nt":   # (tests run the finish step as Windows on Linux too: nothing to look for there)
         return []
@@ -2100,7 +2100,7 @@ def end_stale_games(folders):
             continue
         h = k32.OpenProcess(0x0001 | 0x00100000, False, pid)   # (PROCESS_TERMINATE | SYNCHRONIZE)
         if h:
-            print("A copy of Hookshot left running without a window (process %d) was ended so the update can replace it" % pid,
+            print("A copy of BlueShell left running without a window (process %d) was ended so the update can replace it" % pid,
                   flush=True)
             k32.TerminateProcess(h, 1)
             k32.WaitForSingleObject(h, 10000)
@@ -2161,7 +2161,7 @@ def main(a=None):
     if a.update:
         if not os.path.isdir(kept) or not os.path.isdir(romfs):
             fail("This game folder has no copy of the game files to update from: it was built before updates came in. Choose your game files "
-                 "in Hookshot Builder and build into the same folder once; updates after that work by themselves.")
+                 "in BlueShell Builder and build into the same folder once; updates after that work by themselves.")
         check_cache_paths(out, (kept, romfs))
         shutil.copytree(kept, exefs)
         check_modules(exefs)
@@ -2177,7 +2177,7 @@ def main(a=None):
             st = os.stat(a.nup)
         except OSError as e:
             fail("Could not access your .nup file %s: %s. Check that the file is still there, reconnect its drive if needed, "
-                 "or choose the file again in Hookshot Builder." % (a.nup, e))
+                 "or choose the file again in BlueShell Builder." % (a.nup, e))
         stamp = "unpacked by this builder: %s %d" % (os.path.basename(a.nup), st.st_size)
         same = False
         if os.path.exists(good) and os.path.isdir(romfs) and os.path.isdir(kept):
@@ -2309,7 +2309,7 @@ def main(a=None):
             print("translated files cut short (%s): the game is translated again" % ", ".join(cut[:6]), flush=True)
         else:
             fail("The translated game came out cut short twice (%s). Check that the drive with %s has free space, and that no antivirus "
-                 "and no second Hookshot Builder is working in that folder, then update again." % (", ".join(cut[:6]), work))
+                 "and no second BlueShell Builder is working in that folder, then update again." % (", ".join(cut[:6]), work))
 
     translate()
 
@@ -2390,15 +2390,15 @@ def main(a=None):
     say("stage", "finish", "Putting the game folder together")
     built = os.path.join(work, "sa", "build")
     # (the new files are copied in beside the old ones as <name>.new and swapped in only once all are complete: a build stopped while
-    # copying, or a full disk, left a half-written 460 MB hookshot.exe and no game to play. The old game stays playable until the swap)
-    # (Windows) hookshot.exe in the folder is the game's launcher: the builder's small setup, which opens the installed builder as a
+    # copying, or a full disk, left a half-written 460 MB blueshell.exe and no game to play. The old game stays playable until the swap)
+    # (Windows) blueshell.exe in the folder is the game's launcher: the builder's small setup, which opens the installed builder as a
     # launcher for this folder (Play, and Update left of it when a newer release is out: builder/setup/setup.c launch mode), or starts
     # the game when no builder is installed. The game and its DLLs are in bin\; its files (image.bin, romfs, saves, settings, caches)
-    # stay in the folder (host/hos_paths.h). Without the setup (a development build) the game stays hookshot.exe in the folder
+    # stay in the folder (host/hos_paths.h). Without the setup (a development build) the game stays blueshell.exe in the folder
     staged = []
     # (Linux) the same launcher, as a script, when this is a packaged builder (the AppImage sets HOOKSHOT_TOOLS). A source
     # checkout leaves hookshot in the folder, as a development build on Windows does when the setup exe is not beside it
-    launcher = os.path.join(os.path.dirname(os.path.abspath(ROOT)), "HookshotBuilder-Setup.exe")
+    launcher = os.path.join(os.path.dirname(os.path.abspath(ROOT)), "BlueShellBuilder-Setup.exe")
     if LINUX:
         script = os.path.join(ROOT, "builder", "linux", "hookshot-folder")
         launcher = script if os.environ.get("HOOKSHOT_TOOLS") and os.path.isfile(script) else None
@@ -2426,17 +2426,17 @@ def main(a=None):
     if not LINUX:   # (a copy of this game still running holds its exe: one with no window is a leftover, ended; else named)
         shown = end_stale_games([game_dir, out])
         if shown:
-            fail("Hookshot is still running from this folder (%s). Close it, then retry. No installed files were replaced."
+            fail("BlueShell is still running from this folder (%s). Close it, then retry. No installed files were replaced."
                  % ", ".join("process %d" % pid for pid in shown))
     for src, dst in staged:
         try:
             os.replace(dst + ".new", dst)   # (linux: a running copy keeps its own file; windows: a running exe cannot be replaced)
         except PermissionError:
-            fail("Could not replace %s. Close any running copy of Hookshot and check that the file and folder are writable, then retry. "
+            fail("Could not replace %s. Close any running copy of BlueShell and check that the file and folder are writable, then retry. "
                  "Staged replacements remain beside the installed files; the compiled source remains at %s." % (dst, src))
     if launcher:   # (a folder built before the launcher: its libraries left the folder for bin\; hookshot is the launcher now)
         stale = [] if LINUX else sorted(f for f in os.listdir(out) if f.endswith(".dll") and f.startswith(("av", "sw")))
-        for n in BESIDE[1:] + stale + ["hookshot.map", "hookshot-game.exe"]:
+        for n in BESIDE[1:] + stale + ["blueshell.map", "blueshell-game.exe"]:
             try:
                 if os.path.isfile(os.path.join(out, n)):
                     os.remove(os.path.join(out, n))
@@ -2558,7 +2558,7 @@ def cli():
                 say("error", drive_error(e))
                 sys.exit(1)
             say("error", "The builder stopped on an error it did not expect: %s: %s. Please send the text under Show details to the "
-                "Hookshot issues page." % (type(e).__name__, str(e)[:300]))
+                "BlueShell issues page." % (type(e).__name__, str(e)[:300]))
             sys.exit(1)
 
 

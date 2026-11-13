@@ -2,27 +2,27 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace HookshotBuilder;
+namespace BlueShellBuilder;
 
 /// One home for the setup, app and their children. Portable homes are explicitly marked, never inferred from cwd.
 static class BuilderHome
 {
     public const string Marker = ".hookshot-portable";
-    public const string MarkerText = "Hookshot Builder portable home v1";
+    public const string MarkerText = "BlueShell Builder portable home v1";
     const string RootVariable = "HOOKSHOT_SETUP_BASE";
     const string PortableVariable = "HOOKSHOT_BUILDER_PORTABLE";
     internal readonly record struct Home(string Root, bool Portable);
 
     static readonly Lazy<Home> Current = new(() => Resolve(
         Environment.GetEnvironmentVariable(RootVariable), AppContext.BaseDirectory,
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HookshotBuilder"),
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BlueShellBuilder"),
         Environment.GetEnvironmentVariable(PortableVariable) == "1"));
 
     public static string Base => Current.Value.Root;
     public static bool Portable => Current.Value.Portable;
     public static string DefaultGame => Portable
-        ? Path.Combine(Directory.GetParent(Base)!.FullName, "Hookshot")
-        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Games", "Hookshot");
+        ? Path.Combine(Directory.GetParent(Base)!.FullName, "BlueShell")
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Games", "BlueShell");
 
     internal static Home Resolve(string? requested, string appDirectory, string standard, bool portableRequested = false)
     {
@@ -37,7 +37,7 @@ static class BuilderHome
         if (portableRequested)
             throw new IOException("The portable Builder home was not passed to this process.");
 
-        // Setup versions/<tag>/HookshotBuilder and ZIP fallback builders/<tag>/HookshotBuilder have the same depth.
+        // Setup versions/<tag>/BlueShellBuilder and ZIP fallback builders/<tag>/BlueShellBuilder have the same depth.
         DirectoryInfo? directory = new(Path.GetFullPath(appDirectory));
         for (var depth = 0; depth <= 3 && directory != null; depth++, directory = directory.Parent)
             if (IsMarked(directory.FullName)) return new(Absolute(directory.FullName), true);

@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 
-namespace HookshotBuilder;
+namespace BlueShellBuilder;
 
 /// Where nx2/make_game.py and its Python are: a "tools" folder beside the app when packaged, or the source tree it sits in.
 sealed record Tools(string Root, string Python, string[]? PythonArgs = null)
@@ -191,7 +191,7 @@ sealed class Runner
             {
                 if (lastError != null && lastError.Contains("Microsoft Store", StringComparison.OrdinalIgnoreCase))
                     return (false, "Python 3 was not found: the 'python' command on this PC is the Microsoft Store shortcut, which only opens " +
-                                   "the Store. Install Python 3 from python.org (not the Store version), or use the full Hookshot Builder package.");
+                                   "the Store. Install Python 3 from python.org (not the Store version), or use the full BlueShell Builder package.");
                 return (false, lastError ?? "The game tools stopped without saying why (exit code " + p.ExitCode + ").");
             }
             return result;
@@ -199,7 +199,7 @@ sealed class Runner
         catch (Exception)
         {
             if (tools.OwnPythonMissing) return (false, Tools.OwnPythonMissingText);
-            return (false, "Python 3 was not found. Install it from python.org (not the Microsoft Store build), or use the full Hookshot Builder package.");
+            return (false, "Python 3 was not found. Install it from python.org (not the Microsoft Store build), or use the full BlueShell Builder package.");
         }
     }
 }

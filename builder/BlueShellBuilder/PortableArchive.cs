@@ -1,7 +1,7 @@
 using System.IO;
 using System.IO.Compression;
 
-namespace HookshotBuilder;
+namespace BlueShellBuilder;
 
 /// ZIP fallback shares the native setup's version registry; a failed extraction never replaces an installed version.
 static class PortableArchive
@@ -15,7 +15,7 @@ static class PortableArchive
         var versions = Path.Combine(resolved.Root, "versions");
         Directory.CreateDirectory(versions);
         var destination = Path.Combine(versions, tag);
-        var target = Path.Combine(destination, "HookshotBuilder");
+        var target = Path.Combine(destination, "BlueShellBuilder");
         var staging = Path.Combine(versions, ".unpack-" + Guid.NewGuid().ToString("N"));
         try
         {
@@ -24,7 +24,7 @@ static class PortableArchive
             else
             {
                 ZipFile.ExtractToDirectory(zip, staging);
-                var nested = Path.Combine(staging, "HookshotBuilder");
+                var nested = Path.Combine(staging, "BlueShellBuilder");
                 var payload = Directory.Exists(nested) ? nested : staging;
                 Validate(payload, tag);
                 // Publish the complete version directory before changing the current pointer.
@@ -38,7 +38,7 @@ static class PortableArchive
                             var to = Path.Combine(container, Path.GetFileName(entry));
                             if (Directory.Exists(entry)) Directory.Move(entry, to); else File.Move(entry, to);
                         }
-                    Directory.Move(container, Path.Combine(staging, "HookshotBuilder"));
+                    Directory.Move(container, Path.Combine(staging, "BlueShellBuilder"));
                 }
                 Directory.Move(staging, destination);
             }
@@ -60,7 +60,7 @@ static class PortableArchive
     static void Validate(string folder, string tag)
     {
         var version = Path.Combine(folder, "tools", "version.txt");
-        if (!File.Exists(Path.Combine(folder, "HookshotBuilder.exe")) || !File.Exists(version) ||
+        if (!File.Exists(Path.Combine(folder, "BlueShellBuilder.exe")) || !File.Exists(version) ||
             File.ReadAllText(version).Trim() != tag)
             throw new InvalidDataException("The Builder archive does not contain the requested version.");
     }

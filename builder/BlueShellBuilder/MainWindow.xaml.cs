@@ -11,7 +11,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using Microsoft.Win32;
 
-namespace HookshotBuilder;
+namespace BlueShellBuilder;
 
 /// The installer: one 960x600 window. It opens with the hookshot in the middle while it looks for the game files, then walks
 /// through Game files > Build > Play. The game's update offer (Updater.cs) opens the same window on its update screen.
@@ -71,8 +71,8 @@ public partial class MainWindow : Window
         Loaded += (_, _) => Start();
         var tools = Tools.Find();
         ToolsNote.Text = tools != null
-            ? "Nothing else to install: Hookshot's own build tools are here, downloaded and checked by its setup."
-            : "Hookshot's build tools are missing from its folder. Press Build and Hookshot offers to download them again.";
+            ? "Nothing else to install: BlueShell's own build tools are here, downloaded and checked by its setup."
+            : "BlueShell's build tools are missing from its folder. Press Build and BlueShell offers to download them again.";
         SetStep(0);
         Refresh();
     }
@@ -100,9 +100,9 @@ public partial class MainWindow : Window
             Updater.FromCommandLine(this);
             return;
         }
-        if (LaunchArg() is { } launchFolder)   // (Hookshot Launcher.exe in the game folder)
+        if (LaunchArg() is { } launchFolder)   // (BlueShell Launcher.exe in the game folder)
         {
-            SplashText.Text = "Starting Hookshot…";
+            SplashText.Text = "Starting BlueShell…";
             await Task.Delay(700);
             ShowMain();
             ShowLauncher(launchFolder);
@@ -188,7 +188,7 @@ public partial class MainWindow : Window
         {
             case Mode.UpdateGame:
                 FilesTitle.Text = "Update available";
-                FilesSub.Text = $"Hookshot {updateTarget} is available. Your game is {game}: Update builds it again from the game files kept in " +
+                FilesSub.Text = $"BlueShell {updateTarget} is available. Your game is {game}: Update builds it again from the game files kept in " +
                                 "its folder, compiling only what changed.";
                 BuildButton.Content = "Update";
                 break;
@@ -201,12 +201,12 @@ public partial class MainWindow : Window
                 break;
             case Mode.UpdateBuilder:
                 FilesTitle.Text = "Build your game";
-                FilesSub.Text = $"Hookshot Builder {updateTarget} is available (this one is {builder}): update it first, then build.";
+                FilesSub.Text = $"BlueShell Builder {updateTarget} is available (this one is {builder}): update it first, then build.";
                 BuildButton.Content = "Update builder";
                 break;
             default:
                 FilesTitle.Text = "Build your game";
-                FilesSub.Text = "Pick your game files and where the game goes. Hookshot does the rest, once.";
+                FilesSub.Text = "Pick your game files and where the game goes. BlueShell does the rest, once.";
                 BuildButton.Content = "Build the game";
                 break;
         }
@@ -214,7 +214,7 @@ public partial class MainWindow : Window
         AboutText.Visibility = mode is Mode.Build ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // ---- the launcher: Hookshot Launcher.exe in a game folder starts this with --launch <folder> (builder/setup/setup.c) ----
+    // ---- the launcher: BlueShell Launcher.exe in a game folder starts this with --launch <folder> (builder/setup/setup.c) ----
     string launchFolder = "";
 
     static string? LaunchArg()
@@ -230,7 +230,7 @@ public partial class MainWindow : Window
         OutPath.Text = folder;
         StepPill.Visibility = Visibility.Collapsed;
         var game = GameVersion(folder) ?? ReadVersion(folder);
-        LaunchVersion.Text = (game != null ? $"Hookshot {game}" : "Hookshot") + " · " + folder;
+        LaunchVersion.Text = (game != null ? $"BlueShell {game}" : "BlueShell") + " · " + folder;
         LaunchPlay.IsEnabled = File.Exists(GameExe(folder));
         ShowPage(LaunchPage);
         latestTag = Environment.GetEnvironmentVariable("HOOKSHOT_LATEST_TAG") is { Length: > 0 } fake ? (fake == "none" ? null : fake) : await Updater.LatestTag(Track);
@@ -244,7 +244,7 @@ public partial class MainWindow : Window
             LaunchUpdate.Visibility = Visibility.Visible;
         }
         else if (game != null && game != updateTarget)
-            LaunchStatus.Text = $"{updateTarget} is out: build this folder again with the Hookshot Builder to get it";
+            LaunchStatus.Text = $"{updateTarget} is out: build this folder again with the BlueShell Builder to get it";
         else LaunchStatus.Text = latestTag == null ? "Up to date with this builder (GitHub did not answer)" : "Up to date";
     }
 
@@ -260,11 +260,11 @@ public partial class MainWindow : Window
         return null;
     }
 
-    /// The game in a folder: bin\hookshot.exe below its launcher (hookshot.exe), or hookshot.exe in a folder built before the launcher
+    /// The game in a folder: bin\blueshell.exe below its launcher (blueshell.exe), or blueshell.exe in a folder built before the launcher
     static string GameExe(string folder)
     {
-        var game = System.IO.Path.Combine(folder, "bin", "hookshot.exe");
-        return File.Exists(game) ? game : System.IO.Path.Combine(folder, "hookshot.exe");
+        var game = System.IO.Path.Combine(folder, "bin", "blueshell.exe");
+        return File.Exists(game) ? game : System.IO.Path.Combine(folder, "blueshell.exe");
     }
 
     /// (the launcher already checked for updates: the game does not ask again)
@@ -310,7 +310,7 @@ public partial class MainWindow : Window
     /// (going to an older version, from another track: asked first)
     bool OlderOk(string? have) =>
         !Switching || !Updater.Newer(have, updateTarget) ||
-        MessageBox.Show(this, $"{updateTarget} is older than {have}, the version you have now. Install {updateTarget}?", "Hookshot",
+        MessageBox.Show(this, $"{updateTarget} is older than {have}, the version you have now. Install {updateTarget}?", "BlueShell",
                         MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
 
     void LaunchPlayClick(object sender, RoutedEventArgs e)
@@ -325,7 +325,7 @@ public partial class MainWindow : Window
     // ---- Save my pipeline list: the game folder's pipeline list and the "Submit your pipelines" issue's template, filled in,
     // zipped into the Downloads folder by nx2/pipeline_share.py (as the Linux builder and the game's menu do), then the template
     // on the clipboard, the zip shown in its folder and the issue opened. Nothing is uploaded: the player attaches the zip ----
-    const string ShareIssue = "https://github.com/NotRexed/Hookshot/issues/2034";
+    const string ShareIssue = "https://github.com/NotRexed/BlueShell/issues/2034";
 
     async void LaunchShareClick(object sender, RoutedEventArgs e)
     {
@@ -769,7 +769,7 @@ public partial class MainWindow : Window
     {
         if (!File.Exists(System.IO.Path.Combine(x, "main")))
         {
-            MessageBox.Show(this, "That exefs folder has no file named main.", "Hookshot");
+            MessageBox.Show(this, "That exefs folder has no file named main.", "BlueShell");
             return;
         }
         sourcePicked = true;
@@ -791,7 +791,7 @@ public partial class MainWindow : Window
 
     void BrowseWork(object sender, RoutedEventArgs e)
     {
-        if (PickFolder("Choose where Hookshot keeps its build files") is not { } picked) return;
+        if (PickFolder("Choose where BlueShell keeps its build files") is not { } picked) return;
         ChangeWork(picked);
     }
 
@@ -802,7 +802,7 @@ public partial class MainWindow : Window
         try { Storage.MoveWork(picked); }
         catch (Exception x) when (x is IOException or UnauthorizedAccessException)
         {
-            MessageBox.Show(this, $"Hookshot cannot keep its build files there: {x.Message}", "Hookshot");
+            MessageBox.Show(this, $"BlueShell cannot keep its build files there: {x.Message}", "BlueShell");
         }
         Refresh();
     }
@@ -864,7 +864,7 @@ public partial class MainWindow : Window
                 try { await Updater.RunLatestSetup(this, Array.Empty<string>(), updateTarget, Switching); }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(this, ex.Message + " You can also download HookshotBuilder.exe from the releases page.", "Hookshot");
+                    MessageBox.Show(this, ex.Message + " You can also download BlueShellBuilder.exe from the releases page.", "BlueShell");
                     RefreshMode();
                 }
                 return;
@@ -873,7 +873,7 @@ public partial class MainWindow : Window
         var tools = Tools.Find();
         if (tools == null)
         {
-            ShowProblem("The build tools are not in Hookshot's folder.", tools: true);
+            ShowProblem("The build tools are not in BlueShell's folder.", tools: true);
             return;
         }
         var args = new List<string>();
@@ -888,12 +888,12 @@ public partial class MainWindow : Window
     }
 
     const string DlssLicense =
-        "NVIDIA DLSS is NVIDIA's, not Hookshot's. With it ticked, the build downloads NVIDIA's DLSS SDK (release v310.9.16) from " +
+        "NVIDIA DLSS is NVIDIA's, not BlueShell's. With it ticked, the build downloads NVIDIA's DLSS SDK (release v310.9.16) from " +
         "github.com/NVIDIA/DLSS, under NVIDIA's own license, the NVIDIA RTX SDKs license:\n\n" +
         "https://github.com/NVIDIA/DLSS/blob/9981c6350dc58c0ce21f024fd65e31e851c31689/LICENSE.txt\n\n" +
         "Its files stay on this PC (in the builder's ngx-sdk folder, and nvngx_dlss.dll and nvngx_dlssg.dll in the game " +
         "folder's ngx folder). " +
-        "Hookshot never includes or shares them: never share a game folder built with them.\n\n" +
+        "BlueShell never includes or shares them: never share a game folder built with them.\n\n" +
         "Do you accept NVIDIA's license?";
 
     /// NVIDIA's license accepted on the DLSS tick, kept in the settings (DlssLicense): an update keeps a folder's DLSS by it.
@@ -912,7 +912,7 @@ public partial class MainWindow : Window
     }
 
     const string FsrLicense =
-        "AMD FSR 4 is AMD's, not Hookshot's. With it ticked, the build downloads AMD's FSR runtime for Vulkan (FidelityFX SDK " +
+        "AMD FSR 4 is AMD's, not BlueShell's. With it ticked, the build downloads AMD's FSR runtime for Vulkan (FidelityFX SDK " +
         "v2.4.0: amd_fidelityfx_loader_vk.dll and amd_fidelityfx_upscaler_vk.dll, signed by AMD) from " +
         "github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK, each file checked against its SHA-256, under AMD's FSR SDK license:\n\n" +
         "https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/7539ae8b6568ad29ed78a753404351daf3b5cca7/Kits/FidelityFX/docs/license.md\n\n" +
@@ -983,7 +983,7 @@ public partial class MainWindow : Window
     {
         // (a warning, not a stop: the player may have no other folder with the room. An update keeps its rows and its own flow)
         if (!keepRows && HardDriveWarning() is { } slow &&
-            MessageBox.Show(this, slow, "Hookshot", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+            MessageBox.Show(this, slow, "BlueShell", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
             return;
         int? workers, memoryGb;
         try
@@ -993,7 +993,7 @@ public partial class MainWindow : Window
         }
         catch (ArgumentException e)
         {
-            MessageBox.Show(this, e.Message, "Hookshot");
+            MessageBox.Show(this, e.Message, "BlueShell");
             return;
         }
         if (!keepRows)
@@ -1239,9 +1239,9 @@ public partial class MainWindow : Window
         // (both places when the build files are in a folder the player chose: the total counts both)
         var where = Storage.WorkChosen ? $"{Storage.Base} and {Storage.Work}" : Storage.Base;
         StorageNote.Text = freeable >= 100L << 20
-            ? $"Hookshot Builder keeps {Storage.Gb(total)} on this PC ({where}). {Storage.Gb(freeable)} of it only makes the next " +
+            ? $"BlueShell Builder keeps {Storage.Gb(total)} on this PC ({where}). {Storage.Gb(freeable)} of it only makes the next " +
               "update quicker and can be freed: your game keeps playing, and the next update then takes about as long as this build."
-            : $"Hookshot Builder keeps {Storage.Gb(total)} on this PC ({where}): the builder itself.";
+            : $"BlueShell Builder keeps {Storage.Gb(total)} on this PC ({where}): the builder itself.";
         FreeButton.Visibility = freeable >= 100L << 20 ? Visibility.Visible : Visibility.Collapsed;
         FreeButton.IsEnabled = true;
         FreeButton.Content = "Free up space";
@@ -1322,7 +1322,7 @@ public partial class MainWindow : Window
                      {
                          (1, "Open Windows Security → Protection history, and restore the removed files."),
                          (2, $"Or add {base_} to its exclusions."),
-                         (3, "Then press Repair: Hookshot downloads the tools again from their official releases and checks each one."),
+                         (3, "Then press Repair: BlueShell downloads the tools again from their official releases and checks each one."),
                      })
                 ProblemSteps.Children.Add(new TextBlock { Text = $"{n}.  {s}", Style = (Style)FindResource("Note"), FontSize = 14, Margin = new Thickness(0, 6, 0, 0) });
         }
@@ -1353,24 +1353,24 @@ public partial class MainWindow : Window
     void CopyForReport(object sender, RoutedEventArgs e)
     {
         var lines = log.ToString().Split('\n');
-        var text = $"Hookshot Builder {Tools.Find()?.Version ?? "(source)"} on Windows {Environment.OSVersion.Version}\n" +
+        var text = $"BlueShell Builder {Tools.Find()?.Version ?? "(source)"} on Windows {Environment.OSVersion.Version}\n" +
                    $"{ProblemTitle.Text}: {lastFailure}\n\n" + string.Join("\n", lines.Skip(Math.Max(0, lines.Length - 200)));
         try { Clipboard.SetText(text); CopyReport.Content = "Copied"; } catch (Exception) { }
     }
 
     void Back(object sender, RoutedEventArgs e) => ToFiles();
 
-    /// The setup (HookshotBuilder-Setup.exe beside this app) checks every part against its checksum and downloads the missing ones
+    /// The setup (BlueShellBuilder-Setup.exe beside this app) checks every part against its checksum and downloads the missing ones
     void Repair(object sender, RoutedEventArgs e)
     {
-        var setup = System.IO.Path.Combine(AppContext.BaseDirectory, "HookshotBuilder-Setup.exe");
+        var setup = System.IO.Path.Combine(AppContext.BaseDirectory, "BlueShellBuilder-Setup.exe");
         if (File.Exists(setup))
         {
             Process.Start(new ProcessStartInfo(setup, "--repair") { UseShellExecute = false, WorkingDirectory = AppContext.BaseDirectory });
             Application.Current.Shutdown();
             return;
         }
-        Process.Start(new ProcessStartInfo("https://github.com/NotRexed/Hookshot/releases/latest") { UseShellExecute = true });
+        Process.Start(new ProcessStartInfo("https://github.com/NotRexed/BlueShell/releases/latest") { UseShellExecute = true });
     }
 
     // ================= the update (Updater.cs): the game started this app with --update <folder> =================
@@ -1452,7 +1452,7 @@ public partial class MainWindow : Window
 
     void CloseWindow(object sender, RoutedEventArgs e)
     {
-        if (runner != null && MessageBox.Show(this, T(S.CloseQuestion), "Hookshot", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (runner != null && MessageBox.Show(this, T(S.CloseQuestion), "BlueShell", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         runner?.Cancel();
         Close();
     }

@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 
-namespace HookshotBuilder;
+namespace BlueShellBuilder;
 
 /// A choice for this window only. Automatic leaves the build tools' inherited override and memory policy alone.
 static class BuildWorkers

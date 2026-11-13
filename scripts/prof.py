@@ -29,8 +29,8 @@ def load_map(path, base):
 
 
 # The modules whose frames are Hookshot's own code (the game and the runtime, the renderer): Windows, then Linux
-GAME_MODS = ("hookshot.exe", "hookshot")
-VK_MODS = ("hookshot_vk.dll", "hookshot_vk.so")
+GAME_MODS = ("blueshell.exe", "blueshell")
+VK_MODS = ("blueshell_vk.dll", "blueshell_vk.so")
 RUN_MODS = GAME_MODS + VK_MODS
 # A sample whose leaf is outside Hookshot is a wait only when a wait is on its stack: libc's memcpy and the driver's own
 # vkCmd* work are CPU time of the thread. These names (as the samples are named: Hookshot's frames, leaf first) wait.
@@ -45,7 +45,7 @@ def waiting(leaf_module, names):
     if leaf_module in RUN_MODS:
         return False
     for n in names:
-        if n.startswith(("hookshot:", "hookshot_vk:", "hookshot.exe:", "hookshot_vk.dll:")):
+        if n.startswith(("blueshell:", "blueshell_vk:", "blueshell.exe:", "blueshell_vk.dll:")):
             return n.endswith(WAIT_FRAMES)
     return True   # (no frame of Hookshot's at all: a thread blocked outside it)
 
@@ -72,11 +72,11 @@ def load_symbols(folder=None):
     Windows build, the binaries of the Linux one"""
     folder = folder or os.environ.get("RX_MAPS", BUILD)
     maps = {}
-    for mod in ("hookshot_vk.dll", "hookshot.exe"):
+    for mod in ("blueshell_vk.dll", "blueshell.exe"):
         mp = os.path.join(folder, mod[:-4] + ".map")
         if os.path.exists(mp):
             maps[mod] = load_map(mp, 0x180000000 if mod.endswith(".dll") else 0x140000000)
-    for mod in ("hookshot_vk.so", "hookshot"):
+    for mod in ("blueshell_vk.so", "blueshell"):
         b = os.path.join(folder, mod)
         if os.path.isfile(b):
             try:

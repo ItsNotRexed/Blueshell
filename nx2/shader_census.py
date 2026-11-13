@@ -36,7 +36,10 @@ SLOTS = (8, 16, 24, 32, 40, 48, 56, 64, 72)
 
 
 def dictionaries(romfs, zs):
-    """The game's zstd dictionaries: the files of a SARC, Pack/ZsDic.pack.zs"""
+    """The game's zstd dictionaries: the files of a SARC, Pack/ZsDic.pack.zs. (blueshell) None when the game has no such pack:
+    Mario Kart World's .zs files are plain zstd"""
+    if not os.path.isfile(os.path.join(romfs, "Pack", "ZsDic.pack.zs")):
+        return []
     raw = zs.ZstdDecompressor().decompress(open(os.path.join(romfs, "Pack", "ZsDic.pack.zs"), "rb").read(), max_output_size=1 << 28)
     start = struct.unpack_from("<I", raw, 0x0c)[0]
     out = []

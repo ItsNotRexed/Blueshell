@@ -1,4 +1,4 @@
-namespace HookshotBuilder;
+namespace BlueShellBuilder;
 
 /// What the player chose last time (the install folder, the game files, the shaders' tick): builder-settings.json beside the versions
 sealed class BuilderSettings

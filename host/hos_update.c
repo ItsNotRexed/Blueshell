@@ -187,6 +187,7 @@ static int local_builder(const wchar_t *file, const wchar_t *dir, wchar_t *out, 
 }
 
 void hos_update_check(void) {
+    return;   /* (blueshell) no release feed yet: Hookshot's would offer Hookshot as an update */
     if (getenv("HOOKSHOT_NO_UPDATE_CHECK") && strcmp(getenv("HOOKSHOT_NO_UPDATE_CHECK"), "0")) return;
     wchar_t dir[MAX_PATH], file[MAX_PATH + 64];
     DWORD n = hos_game_path_w(dir, MAX_PATH);
@@ -365,6 +366,7 @@ static int installed_builder(char *out, size_t cap) {
 }
 
 void hos_update_check(void) {
+    return;   /* (blueshell) no release feed yet */
     const char *off = getenv("HOOKSHOT_NO_UPDATE_CHECK");
     if (off && strcmp(off, "0")) return;
     char path[MAX_PATH + 64], have[128], builder[MAX_PATH * 2], skipped[128] = "", tag[128];

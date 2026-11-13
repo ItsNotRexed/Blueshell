@@ -8,11 +8,11 @@ BEGIN
   BEGIN
     BLOCK "040904b0"
     BEGIN
-      VALUE "CompanyName", "Hookshot"
-      VALUE "FileDescription", "Hookshot Builder setup"
-      VALUE "ProductName", "Hookshot Builder"
+      VALUE "CompanyName", "BlueShell"
+      VALUE "FileDescription", "BlueShell Builder setup"
+      VALUE "ProductName", "BlueShell Builder"
       VALUE "FileVersion", "1.0.0"
-      VALUE "OriginalFilename", "HookshotBuilder-Setup.exe"
+      VALUE "OriginalFilename", "BlueShellBuilder-Setup.exe"
     END
   END
   BLOCK "VarFileInfo"

@@ -6,10 +6,10 @@
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>HookshotBuilder</AssemblyName>
-    <RootNamespace>HookshotBuilder</RootNamespace>
+    <AssemblyName>BlueShellBuilder</AssemblyName>
+    <RootNamespace>BlueShellBuilder</RootNamespace>
     <Version>0.1.0</Version>
-    <Product>Hookshot Builder</Product>
+    <Product>BlueShell Builder</Product>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <ApplicationIcon Condition="Exists('..\..\work\hookshot.ico')">..\..\work\hookshot.ico</ApplicationIcon>

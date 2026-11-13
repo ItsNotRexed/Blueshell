@@ -2,7 +2,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace HookshotBuilder;
+namespace BlueShellBuilder;
 
 /// Whether a folder is on a hard drive (a spinning disk) or an SSD: a build reads and writes tens of gigabytes, and an SSD makes
 /// that much faster. The answer is a warning only (the player may have no other drive), never a stop.
