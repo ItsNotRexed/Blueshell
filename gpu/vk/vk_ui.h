@@ -24,13 +24,15 @@ inline ImU32 alpha(ImU32 c, float k) {
 }
 
 // ---- the palette ----
-constexpr ImU32 kInk = rgba(240, 232, 214), kInkBright = rgba(255, 250, 240), kSoft = rgba(214, 204, 184), kDim = rgba(168, 156, 136),
-                kGold = rgba(222, 152, 40), kGoldHi = rgba(238, 168, 52), kGoldInk = rgba(36, 24, 8), kAccent = rgba(214, 170, 96),
-                kEdge = rgba(122, 98, 64, 150), kCellDark = rgba(30, 25, 19, 246), kCellName = rgba(60, 47, 32, 240),
-                kCellNameSel = rgba(92, 70, 42, 248), kBronze = rgba(84, 64, 38), kColumn = rgba(34, 26, 17, 228),
-                kBannerTop = rgba(184, 146, 96, 246), kBanner = rgba(176, 138, 88, 246), kBannerInk = rgba(46, 30, 12),
-                kBannerEdge = rgba(70, 48, 24), kTabInset = rgba(84, 56, 30, 250), kBox = rgba(36, 28, 19, 248),
-                kBoxEdge = rgba(122, 98, 64, 220), kBar = rgba(22, 17, 11, 232), kListen = rgba(150, 120, 40);
+// (blueshell) MKW's blues in place of Hookshot's wood and bronze; the same roles and contrasts (dark text on the light banner,
+// light text on the dark cells, gold for the selected value)
+constexpr ImU32 kInk = rgba(232, 240, 250), kInkBright = rgba(250, 252, 255), kSoft = rgba(196, 212, 232), kDim = rgba(140, 162, 192),
+                kGold = rgba(244, 184, 28), kGoldHi = rgba(255, 204, 56), kGoldInk = rgba(28, 20, 4), kAccent = rgba(104, 180, 255),
+                kEdge = rgba(70, 110, 170, 150), kCellDark = rgba(14, 22, 40, 246), kCellName = rgba(28, 46, 82, 240),
+                kCellNameSel = rgba(40, 72, 128, 248), kBronze = rgba(36, 64, 112), kColumn = rgba(12, 20, 38, 228),
+                kBannerTop = rgba(108, 172, 246, 246), kBanner = rgba(92, 160, 240, 246), kBannerInk = rgba(8, 18, 40),
+                kBannerEdge = rgba(20, 50, 100), kTabInset = rgba(24, 52, 104, 250), kBox = rgba(14, 22, 40, 248),
+                kBoxEdge = rgba(70, 110, 170, 220), kBar = rgba(8, 13, 26, 232), kListen = rgba(40, 120, 200);
 constexpr int kDimAlpha = 185;   // (the game behind the menu)
 
 /// The unit: pixels per point. By the window's height and the Menu size (1 Small, 2 Medium, 3 Large; anything else, as the
@@ -164,7 +166,7 @@ inline void flourish(Ctx& c, float x0, float x1, float y, ImU32 col) {
 inline void glow(Ctx& c, ImVec2 a0, ImVec2 b0) {
     const float s = c.s;
     for (int i = 6; i >= 1; i--)
-        c.d->AddRect(a0 - ImVec2(i * 1.5f * s, i * 1.5f * s), b0 + ImVec2(i * 1.5f * s, i * 1.5f * s), rgba(255, 244, 220, 12 + 4 * (6 - i)),
+        c.d->AddRect(a0 - ImVec2(i * 1.5f * s, i * 1.5f * s), b0 + ImVec2(i * 1.5f * s, i * 1.5f * s), rgba(220, 236, 255, 12 + 4 * (6 - i)),
                      2 * s, 2.2f * s);
     c.d->AddRect(a0 - ImVec2(1.5f * s, 1.5f * s), b0 + ImVec2(1.5f * s, 1.5f * s), kInkBright, 2 * s, 3 * s);
 }
@@ -181,7 +183,7 @@ struct Prompt {
 /// One glyph at p (its top left; the line px + 10 points high); its width. draw false: measured only
 inline float glyph(Ctx& c, float px, ImVec2 p, const Prompt& pr, bool draw) {
     const float s = c.s, hh = px + 10 * s, my = p.y + hh * 0.5f, kpx = px * 0.84f;
-    const ImU32 cap = kInk, ink = rgba(40, 30, 20), dim = rgba(150, 140, 126);
+    const ImU32 cap = kInk, ink = rgba(14, 22, 40), dim = rgba(126, 144, 170);
     auto key = [&](float x, const char* label) {   // (a key's cap, its label in it)
         const float w = label ? std::max(hh, size_of(c.f.strong, kpx, label).x + 14 * s) : hh;
         if (draw) {
