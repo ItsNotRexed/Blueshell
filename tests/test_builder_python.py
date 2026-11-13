@@ -7,7 +7,7 @@ python -I -B tests/test_builder_python.py
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNNER = ROOT / "builder" / "HookshotBuilder" / "Runner.cs"
+RUNNER = ROOT / "builder" / "BlueShellBuilder" / "Runner.cs"
 
 
 def main():

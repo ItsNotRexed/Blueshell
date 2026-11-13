@@ -79,7 +79,7 @@ class DriveTypeTests(unittest.TestCase):
 
     def test_a_folder_made_later_is_measured_at_its_existing_parent(self):
         with tempfile.TemporaryDirectory(prefix="hookshot-disk-") as tmp:
-            self.assertEqual(disk.existing_parent(os.path.join(tmp, "Games", "Hookshot")), os.path.abspath(tmp))
+            self.assertEqual(disk.existing_parent(os.path.join(tmp, "Games", "BlueShell")), os.path.abspath(tmp))
 
 
 @unittest.skipUnless(hasattr(os, "major"), "device numbers as Linux has them")
@@ -92,7 +92,7 @@ class MountTests(unittest.TestCase):
         self.tmp = os.path.realpath(tmp.name)
         self.sysfs = os.path.join(self.tmp, "sys")
         self.games = os.path.join(self.tmp, "My Games")
-        os.makedirs(os.path.join(self.games, "Hookshot"))
+        os.makedirs(os.path.join(self.games, "BlueShell"))
         os.makedirs(os.path.join(self.sysfs, "dev", "block"))   # (no node in it for the folders' own device number)
         self.nodes = {}
         patch = mock.patch.object(disk, "_block_node", side_effect=lambda device, sysfs="/sys": self.nodes.get(device))
@@ -122,7 +122,7 @@ class MountTests(unittest.TestCase):
         self.disk("nvme0n1", 0, "nvme0n1p2")
         self.disk("sdb", 1, "sdb1")
         mountinfo = self.mounts((self.games, "btrfs", "/dev/sdb1"))
-        self.assertIs(self.spinning(os.path.join(self.games, "Hookshot"), mountinfo), True)
+        self.assertIs(self.spinning(os.path.join(self.games, "BlueShell"), mountinfo), True)
         self.assertIs(self.spinning(self.games, mountinfo), True)   # (the mount point itself, its space written \040)
         self.assertIs(self.spinning(self.tmp, mountinfo), False)    # (beside it: the system's SSD)
 
@@ -130,7 +130,7 @@ class MountTests(unittest.TestCase):
         self.disk("nvme0n1", 0, "nvme0n1p2")
         self.disk("sdb", 1, "sdb1")
         mountinfo = self.mounts((self.games, "btrfs", "/dev/sdb1"), (self.games, "btrfs", "/dev/nvme0n1p2"))
-        self.assertIs(self.spinning(os.path.join(self.games, "Hookshot"), mountinfo), False)
+        self.assertIs(self.spinning(os.path.join(self.games, "BlueShell"), mountinfo), False)
 
     def test_a_btrfs_over_two_disks_reads_both(self):
         self.disk("nvme0n1", 0, "nvme0n1p2")
@@ -144,12 +144,12 @@ class MountTests(unittest.TestCase):
         except (OSError, NotImplementedError):
             self.skipTest("this PC does not let a test make the symlink sysfs uses")
         mountinfo = self.mounts((self.games, "btrfs", "/dev/nvme1n1p1"))   # (the mount names the first disk only)
-        self.assertIs(self.spinning(os.path.join(self.games, "Hookshot"), mountinfo), True)
+        self.assertIs(self.spinning(os.path.join(self.games, "BlueShell"), mountinfo), True)
 
     def test_a_mount_from_no_disk_is_not_guessed(self):
         self.disk("nvme0n1", 0, "nvme0n1p2")
         mountinfo = self.mounts((self.games, "zfs", "tank/games"))
-        self.assertIsNone(self.spinning(os.path.join(self.games, "Hookshot"), mountinfo))
+        self.assertIsNone(self.spinning(os.path.join(self.games, "BlueShell"), mountinfo))
 
 
 class WarningTests(unittest.TestCase):
@@ -187,7 +187,7 @@ class BuilderTests(unittest.TestCase):
     """The three builders ask before a build on a hard drive, and their "Build" goes on when the player says so"""
 
     def test_the_windows_builder_asks(self):
-        source = (ROOT / "builder" / "HookshotBuilder" / "MainWindow.xaml.cs").read_text(encoding="utf-8")
+        source = (ROOT / "builder" / "BlueShellBuilder" / "MainWindow.xaml.cs").read_text(encoding="utf-8")
         self.assertIn("HardDriveWarning()", source)
         self.assertIn("Disk.Spinning", source)
         self.assertIn("MessageBoxButton.OKCancel", source)

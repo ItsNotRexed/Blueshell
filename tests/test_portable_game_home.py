@@ -25,12 +25,12 @@ class Association(unittest.TestCase):
             tree = root / "authored ü, tree"
             home = tree / "Builder"
             game = tree / "Game"
-            tools = home / "versions/v1/HookshotBuilder/tools"
+            tools = home / "versions/v1/BlueShellBuilder/tools"
             tools.mkdir(parents=True)
             game.mkdir()
             marker = home / ".hookshot-portable"
-            marker.write_bytes(b"Hookshot Builder portable home v1\n")
-            setup = tools.parent / "HookshotBuilder-Setup.exe"
+            marker.write_bytes(b"BlueShell Builder portable home v1\n")
+            setup = tools.parent / "BlueShellBuilder-Setup.exe"
             setup.write_text("authored fixture; never executable")
             namespace = dict(os=os, ntpath=ntpath, tempfile=tempfile, contextlib=contextlib, ROOT=str(tools))
             exec(compile(ast.Module(body=nodes, type_ignores=[]), "make_game.py", "exec"), namespace)
@@ -57,12 +57,12 @@ class Association(unittest.TestCase):
                 self.assertEqual((game / "hookshot_version.txt").read_text(), "version=v-authored\nbuilder_local=1\n")
                 self.assertEqual(pointer.read_bytes(), relative.encode("utf-8"))
                 original = pointer.read_bytes()
-                for bad in (b"wrong", b"\xef\xbb\xbfHookshot Builder portable home v1", b"x" * 1000):
+                for bad in (b"wrong", b"\xef\xbb\xbfBlueShell Builder portable home v1", b"x" * 1000):
                     marker.write_bytes(bad)
                     with self.assertRaises(ValueError):
                         resolve(str(game))
                     self.assertEqual(pointer.read_bytes(), original)
-                marker.write_bytes(b"Hookshot Builder portable home v1")
+                marker.write_bytes(b"BlueShell Builder portable home v1")
                 setup.unlink()
                 with self.assertRaises(ValueError):
                     resolve(str(game))
@@ -78,7 +78,7 @@ class Association(unittest.TestCase):
                 self.assertIsNone(resolve(str(moved / "Game")))
                 # A successful standard rebuild must replace the portable association,
                 # not leave setup and the game's updater choosing different Builders.
-                standard = str(root / "standard/HookshotBuilder.exe")
+                standard = str(root / "standard/BlueShellBuilder.exe")
                 namespace.update(out=str(moved / "Game"),
                                  a=SimpleNamespace(check=False, update=None, out=str(moved / "Game")))
                 statements = ast.Module(body=[early, version_loop, publish], type_ignores=[])

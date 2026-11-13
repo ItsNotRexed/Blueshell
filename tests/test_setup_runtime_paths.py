@@ -68,7 +68,7 @@ static void write_parts(const wchar_t *, const Part *, int) { receipts++; }
     code += r'''
 static int stage(const wchar_t *folder) {
     wchar_t install[MAX_PATH], final_dir[MAX_PATH], marker[MAX_PATH];
-    const wchar_t *wrun=L"HookshotBuilder\\HookshotBuilder.exe";
+    const wchar_t *wrun=L"BlueShellBuilder\\BlueShellBuilder.exe";
     const char *tag="fixture"; Part parts[1]; int nparts=0;
     wcscpy(install,folder); wcscpy(final_dir,L"authored-final"); wcscpy(marker,L"authored-marker");
     int error=setjmp(failed);
@@ -79,7 +79,7 @@ static int stage(const wchar_t *folder) {
 int main(void) {
     int argc; wchar_t **argv=CommandLineToArgvW(GetCommandLineW(),&argc);
     if(!argv || argc!=5) return 2;
-    swprintf(g_home.root,MAX_PATH,L"%ls\\HookshotBuilder",argv[1]);
+    swprintf(g_home.root,MAX_PATH,L"%ls\\BlueShellBuilder",argv[1]);
     int reuse=admission(argv[2],argv[3],0), repair=admission(argv[2],argv[3],1);
     int published=stage(argv[4]);
     if(published && (!wcsstr(last_error,L"antivirus") || !wcsstr(last_error,argv[4]))) return 5;
@@ -109,11 +109,11 @@ def main():
             variants.append((name, source.replace(old,new)))
     with tempfile.TemporaryDirectory(prefix="hookshot-runtime-paths-") as tmp:
         root = Path(tmp)
-        folder = root / 'HookshotBuilder/versions/fixture/HookshotBuilder'
+        folder = root / 'BlueShellBuilder/versions/fixture/BlueShellBuilder'
         folder.mkdir(parents=True)
         (folder.parent.parent / 'current.txt').write_text('fixture')
         marker = folder.parent / 'installed.txt'; marker.write_text('fixture')
-        names = ['HookshotBuilder.exe'] + re.findall(r'L"([^"]+)"', function(source,'static int builder_ready('))
+        names = ['BlueShellBuilder.exe'] + re.findall(r'L"([^"]+)"', function(source,'static int builder_ready('))
         for name in names:
             (folder / name).write_bytes(b'authored test file')
         for variant, text in variants:
@@ -122,7 +122,7 @@ def main():
             # Production is C: its Win32 {sizeof si} aggregate zero-initializes the remaining fields.
             subprocess.run([args.cxx,'-std=c++17','-Wall','-Wextra','-Werror','-Wno-missing-field-initializers',str(cpp),'-lshell32','-o',str(exe)],check=True)
             def run():
-                p = subprocess.run([str(exe),str(root),str(folder/'HookshotBuilder.exe'),str(marker),str(folder.parent)],capture_output=True,text=True,check=True)
+                p = subprocess.run([str(exe),str(root),str(folder/'BlueShellBuilder.exe'),str(marker),str(folder.parent)],capture_output=True,text=True,check=True)
                 return tuple(map(int,p.stdout.split()))
             assert run() == (0,1,0,1,1,1,1,1), (variant,'healthy',run())
             runtime = folder/'coreclr.dll'; runtime.unlink()

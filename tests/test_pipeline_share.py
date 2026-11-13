@@ -133,7 +133,7 @@ def check_python(tmp):
     lines = text.splitlines()
     assert [l.split(":")[0] for l in lines] == ["- " + f for f in share.FIELDS], lines
     want = {
-        "Hookshot version": "v2.2.0-rc.1-5-gabcdef1 (source 0123abcd)",
+        "BlueShell version": "v2.2.0-rc.1-5-gabcdef1 (source 0123abcd)",
         "Output resolution": "2560x1440",
         "Upscaler + render resolution": "NVIDIA DLSS, Quality 67% (1707x960)",
         "Frame generation / HDR": "2x / Off",
@@ -327,7 +327,7 @@ def check_sources():
     assert 'is_share_row(r)) choice_cell(c, va, vb, share_value.empty() ? "Save" : share_value' in cell, "the tuning bar shows the row as a page"
     assert menu.count('is_share_row(r) ? "Save" : "Open"') + menu.count('is_share_row(selr) ? "Save" : "Open"') >= 2, \
         "a prompt says Open for Save my pipeline list"
-    cs = (ROOT / "builder" / "HookshotBuilder" / "MainWindow.xaml.cs").read_text(encoding="utf-8")
+    cs = (ROOT / "builder" / "BlueShellBuilder" / "MainWindow.xaml.cs").read_text(encoding="utf-8")
     tick = menu[menu.find("void menu_tick() {"):]
     save, catch_all = tick.find("is_share_row(r)) share_pipeline_list()"), tick.find("!r.value && can_bind()) page = 1")
     assert 0 < save < catch_all, "Enter on the row would open the Controls page"
@@ -362,8 +362,8 @@ def check_sources():
     # the builders
     linux = (ROOT / "builder" / "linux" / "hookshot_builder.py").read_text(encoding="utf-8")
     assert "import pipeline_share" in linux and "Save my pipeline list" in linux
-    cs = (ROOT / "builder" / "HookshotBuilder" / "MainWindow.xaml.cs").read_text(encoding="utf-8")
-    xaml = (ROOT / "builder" / "HookshotBuilder" / "MainWindow.xaml").read_text(encoding="utf-8")
+    cs = (ROOT / "builder" / "BlueShellBuilder" / "MainWindow.xaml.cs").read_text(encoding="utf-8")
+    xaml = (ROOT / "builder" / "BlueShellBuilder" / "MainWindow.xaml").read_text(encoding="utf-8")
     assert '"pipeline_share.py"' in cs and '"--json"' in cs and "Save my pipeline list" in xaml
     assert share.ISSUE_URL in cs
 
@@ -441,7 +441,7 @@ def check_linux_builder(tmp):
                                        open_path=lambda p: calls.append(("open", p)))
     zips = list((t / "dl").glob("*.zip"))
     assert len(zips) == 1 and zipfile.ZipFile(zips[0]).namelist() == [share.LIST, share.REPORT]
-    assert [c[0] for c in calls] == ["copy", "open", "open"] and calls[0][1].startswith("- Hookshot version:"), calls
+    assert [c[0] for c in calls] == ["copy", "open", "open"] and calls[0][1].startswith("- BlueShell version:"), calls
     assert calls[1][1] == str(t / "dl") and calls[2][1] == share.ISSUE_URL, calls
     assert zips[0].name in said and "attach" in said, said
     (g / share.LIST).unlink()

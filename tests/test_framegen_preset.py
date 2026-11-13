@@ -56,6 +56,8 @@ constexpr int kAutoPreset = 6;   /* (the Quality preset Auto (this PC): apply_au
 void apply_auto(bool) {}
 void env_release(const int*) {}   // (the environment's hold on a row: none here)
 void vram_budget_sync() {}
+void texture_refresh_request() {}   // (blueshell: #2975's Refresh memory button, set_row)
+void logf(const char*, ...) {}
 constexpr int kVramMinimumOnly = 1;
 bool row_fixed(const int*) { return false; }
 namespace ur = mkwvk::upscaler_rows;

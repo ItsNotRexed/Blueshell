@@ -178,10 +178,10 @@ class LicenseTests(unittest.TestCase):
 
 
 class BuilderTests(unittest.TestCase):
-    """The Windows Hookshot Builder: the AMD FSR 4 tick shows AMD's license, stays only on yes, and only then adds the flag
+    """The Windows BlueShell Builder: the AMD FSR 4 tick shows AMD's license, stays only on yes, and only then adds the flag
     pair (as the NVIDIA DLSS tick does with NVIDIA's)"""
     def setUp(self):
-        folder = ROOT / "builder" / "HookshotBuilder"
+        folder = ROOT / "builder" / "BlueShellBuilder"
         self.code = (folder / "MainWindow.xaml.cs").read_text(encoding="utf-8")
         self.xaml = (folder / "MainWindow.xaml").read_text(encoding="utf-8")
 

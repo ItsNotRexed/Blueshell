@@ -82,7 +82,7 @@ class ProfileTests(unittest.TestCase):
 
     def test_symbol_resolution_and_filter(self):
         maps = " 0001:00000000 ?draw@renderer@@ 0000000140000010 f\n"
-        output = self.capture("hookshot.exe+10;driver.dll+1\nother.dll+2\n", only="renderer::draw", maps=maps)
+        output = self.capture("blueshell.exe+10;driver.dll+1\nother.dll+2\n", only="renderer::draw", maps=maps)
         self.assertTrue(output.startswith("1 samples\n"))
         self.assertIn("100.0%  hookshot:renderer::draw", output)
         self.assertNotIn("other.dll", output)

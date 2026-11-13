@@ -102,7 +102,7 @@ int wmain(int argc, wchar_t **argv) {
                         "-municode", "-I" + str(ROOT / "builder/setup"), str(c), "-o", str(exe)], check=True)
         tree = root / "Portable ü, tree"
         tree.mkdir()
-        home = tree / "HookshotBuilder"
+        home = tree / "BlueShellBuilder"
         profile = root / "authored AppData"
         setup = tree / "Setup.exe"
         import os
@@ -114,9 +114,9 @@ int wmain(int argc, wchar_t **argv) {
                            env=dict(env, **(overrides or {})), cwd=root, check=True)
             count += 1
         run(setup, home, 1)
-        installed = home / "versions/v-authored/HookshotBuilder"
+        installed = home / "versions/v-authored/BlueShellBuilder"
         installed.mkdir(parents=True)
-        (installed / "HookshotBuilder.exe").write_text("authored; never executed")
+        (installed / "BlueShellBuilder.exe").write_text("authored; never executed")
         for name in re.findall(r'L"([^\"]+)"', function(source, "static int builder_ready(")):
             (installed / name).write_bytes(b"authored startup component; never executed")
         (home / "versions/current.txt").write_text("v-authored\n")
@@ -126,20 +126,20 @@ int wmain(int argc, wchar_t **argv) {
         run(setup, home, 5)
         runtime.write_bytes(b"authored startup component restored")
         run(setup, home, 0)
-        run(installed / "HookshotBuilder-Setup.exe", home, 0)
+        run(installed / "BlueShellBuilder-Setup.exe", home, 0)
         run(root / "downloaded-setup.exe", home, 0, {"HOOKSHOT_SETUP_BASE": str(home), "HOOKSHOT_BUILDER_PORTABLE": "1"})
         game = tree / "Game"
         game.mkdir()
-        (game / ".hookshot_builder_home").write_text("../HookshotBuilder", encoding="utf-8")
+        (game / ".hookshot_builder_home").write_text("../BlueShellBuilder", encoding="utf-8")
         (game / "hookshot_version.txt").write_text("version=v-authored\nbuilder_local=1\n")
-        run(game / "hookshot.exe", home, 0)
+        run(game / "blueshell.exe", home, 0)
         moved = root / "Relocated ü, tree"
         tree.rename(moved)
-        home, game = moved / "HookshotBuilder", moved / "Game"
-        run(game / "hookshot.exe", home, 0)
+        home, game = moved / "BlueShellBuilder", moved / "Game"
+        run(game / "blueshell.exe", home, 0)
         (game / ".hookshot_builder_home").unlink()
-        run(game / "hookshot.exe", home, 2)
-        run(root / "standard-setup.exe", profile / "HookshotBuilder", 3)
+        run(game / "blueshell.exe", home, 2)
+        run(root / "standard-setup.exe", profile / "BlueShellBuilder", 3)
         run(root / "downloaded-setup.exe", home, 2, {"HOOKSHOT_SETUP_BASE": "relative"})
         run(root / "downloaded-setup.exe", home, 2, {"HOOKSHOT_SETUP_BASE": str(profile), "HOOKSHOT_BUILDER_PORTABLE": "1"})
         readonly = root / "write-protected fixture"

@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "builder" / "py"))
 from hookshot_builder import core  # noqa: E402
 
-RUNNER = (ROOT / "builder" / "HookshotBuilder" / "Runner.cs").read_text(encoding="utf-8")
+RUNNER = (ROOT / "builder" / "BlueShellBuilder" / "Runner.cs").read_text(encoding="utf-8")
 
 
 class PythonBuilderTests(unittest.TestCase):

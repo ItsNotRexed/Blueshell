@@ -1,6 +1,6 @@
 """The profile readers (scripts/prof.py, crit.py, hotlist.py) name frames from both builds.
 
-Windows samples name hookshot.exe / hookshot_vk.dll, read through the linker maps; Linux samples name hookshot /
+Windows samples name blueshell.exe / hookshot_vk.dll, read through the linker maps; Linux samples name hookshot /
 hookshot_vk.so, read through the binaries' own symbols (nm). Before, the Linux names were unknown: crit.py counted every
 Linux thread as never running (0.0%) and named nothing. A small position-independent executable called hookshot prints
 its functions' offsets from its load address, as a sample has them; crit.py and hotlist.py must name and count them. A
@@ -49,7 +49,7 @@ def check(cond, what):
 
 
 def windows_map(tmp):
-    """the linker-map path, unchanged: a frame in hookshot.exe named from hookshot.map"""
+    """the linker-map path, unchanged: a frame in blueshell.exe named from hookshot.map"""
     maps = tmp / "win"
     maps.mkdir()
     (maps / "hookshot.map").write_text(
@@ -57,7 +57,7 @@ def windows_map(tmp):
         " 0001:00000000       f_80002000                 0000000140001000 f   code.obj\n"
         " 0001:00000100       f_80002400                 0000000140001100 f   code.obj\n")
     samples = tmp / "win_all.txt"
-    samples.write_text("".join("%d sead::MainThread|hookshot.exe+1010;hookshot.exe+1110\n" % (2 * i) for i in range(1, 6)))
+    samples.write_text("".join("%d sead::MainThread|blueshell.exe+1010;blueshell.exe+1110\n" % (2 * i) for i in range(1, 6)))
     out = run("crit.py", [str(samples)], maps)
     check("100.0%  sead::MainThread" in out, "crit.py: the Windows main thread runs in every sample\n" + out)
     hot = tmp / "win_hot.txt"

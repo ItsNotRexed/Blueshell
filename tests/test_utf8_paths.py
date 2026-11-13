@@ -1,7 +1,7 @@
 """Windows paths as UTF-8: the game exe's manifest makes its code page UTF-8 (nx2/win_manifest.py), so a game folder named
 outside the system's ANSI code page (Japanese on a Western Windows, an emoji anywhere) opens; before, the game closed at start.
 
-Everywhere: the manifest resource's bytes, that nx2/build.py links it into hookshot.exe, that host/hos_main.c checks at start,
+Everywhere: the manifest resource's bytes, that nx2/build.py links it into blueshell.exe, that host/hos_main.c checks at start,
 and that host/ and gpu/vk convert no text with the ANSI code page (CP_ACP and the like: UTF-8 is the one code page of the game's
 char strings). With a compiler for Windows: tests/utf8_paths_test.c (host/hos_main.c's narrow_paths_ok pasted in) built with the
 manifest, and once without it. On Windows both run from a folder named "ゲーム Zélda 🎮": with the manifest the A functions,
@@ -60,9 +60,9 @@ def check_manifest():
 
 def check_build_links_it():
     src = (ROOT / "nx2" / "build.py").read_text(encoding="utf-8")
-    start = src.index('exe = os.path.join(out, "hookshot.exe")')
+    start = src.index('exe = os.path.join(out, "blueshell.exe")')
     link = src[start:src.index("capture_output=True", start)]
-    assert "win_manifest.write(" in link, "nx2/build.py links hookshot.exe without nx2/win_manifest.py's resource"
+    assert "win_manifest.write(" in link, "nx2/build.py links blueshell.exe without nx2/win_manifest.py's resource"
 
 
 def check_start_up():
@@ -150,7 +150,7 @@ def check_probe(cc_arg):
             copy = run_dir / exe.name
             shutil.copyfile(exe, copy)
             env = dict(os.environ, HOS_HEADLESS="1")
-            r = subprocess.run([str(copy), mode, "Hookshot-DLSS ゼルダ Zélda"], capture_output=True, text=True, encoding="utf-8", errors="replace", env=env,
+            r = subprocess.run([str(copy), mode, "BlueShell-DLSS ゼルダ Zélda"], capture_output=True, text=True, encoding="utf-8", errors="replace", env=env,
                                cwd=str(run_dir))
             print(r.stdout.strip())
             assert r.returncode == 0, "%s %s: %s%s" % (exe.name, mode, r.stdout, r.stderr)
