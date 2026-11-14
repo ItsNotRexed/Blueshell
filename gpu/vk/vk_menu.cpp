@@ -1948,11 +1948,10 @@ void save() {
             const std::string key(line, (size_t)(eq - line));
             // (memory_budget and auto_for too: save() writes them, and the file's old line, kept after it, won at the next start;
             // auto_output, the Output resolution Auto once set, is no longer written: its old line is dropped)
-            bool mine = key == "microphone_device" || key == "options_version" || key == "memory_budget" || key == "auto_for" ||
+            bool mine = key == "microphone_device" || key == "mkw_keys" || key == "options_version" || key == "memory_budget" || key == "auto_for" ||
                         key == "auto_tuned" || key == "auto_output" || key == "auto_steps";
             // (and the Mesh shaders row's line, no longer read (gpu/vk/mesh_mode.h): dropped, not kept for nothing)
             mine |= key == "mesh_shaders";
-            mine |= key == "mkw_keys";   // (blueshell: written below)
             for (const Row& r : rows)
                 if (!mine && r.value && key == ini_key(r)) mine = true;
             if (!mine) others += line, others += others.back() == '\n' ? "" : "\n";
@@ -3228,10 +3227,11 @@ void draw_options(ui::Ctx& c) {
     }
     {   // (which build, at the banner's left, so a report can say it without opening the log; the release alone when the whole
         // line would run into the tabs)
-        std::string ver = HOOKSHOT_VERSION;   // (blueshell) the builder's "blueshell-local-<commit>": shown as "BlueShell <commit>"
-        if (ver.rfind("blueshell-local-", 0) == 0) ver = ver.substr(16);
-        else if (ver.rfind("blueshell-", 0) == 0) ver = ver.substr(10);
-        ver = "BlueShell " + ver;
+        // (blueshell) the builder's "blueshell-local-<commit>" shown as "BlueShell <commit>"; a release as players see it
+        const std::string raw = HOOKSHOT_VERSION;
+        std::string ver = raw.rfind("blueshell-local-", 0) == 0 ? "BlueShell " + raw.substr(16)
+                          : raw.rfind("blueshell-", 0) == 0   ? "BlueShell " + raw.substr(10)
+                                                              : std::string("BlueShell ") + version_text(HOOKSHOT_VERSION);
         const float room = (c.w - total) * 0.5f - 60 * s - c.safe, px = 15 * s;
         const auto width = [&](float p) { return ui::size_of(c.f.body, p, ver.c_str()).x; };
         // (still too long, as a source build's "v2.0.11-821-g7b81752-dirty" since the Audio tab: at Small and Medium smaller

@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using HookshotBuilder;
+using BlueShellBuilder;
 
 namespace DigestFixture
 {
@@ -13,7 +13,7 @@ namespace DigestFixture
     // execute separately in test_portable_builder_home.py and test_portable_archive.py.
     static class FakeBuilderHome
     {
-        public static string Base => Path.Combine(State.Current.Root, "HookshotBuilder");
+        public static string Base => Path.Combine(State.Current.Root, "BlueShellBuilder");
         public static bool Portable => false;
         public static void PassTo(ProcessStartInfo info) => info.Environment["HOOKSHOT_SETUP_BASE"] = Base;
     }
@@ -103,8 +103,8 @@ namespace DigestFixture
         public readonly byte[] Old = Encoding.ASCII.GetBytes("keep previous cached file");
         public readonly List<double> Progress = new();
         public int MetadataRequests;
-        public string Cache => Path.Combine(Root, "HookshotBuilder", "update");
-        public string Setup => Path.Combine(Cache, "HookshotBuilder.exe");
+        public string Cache => Path.Combine(Root, "BlueShellBuilder", "update");
+        public string Setup => Path.Combine(Cache, "BlueShellBuilder.exe");
         public string Game => Path.Combine(Root, "authored-game-folder");
 
         public State()
@@ -129,12 +129,12 @@ namespace DigestFixture
                 ["name"] = name, ["browser_download_url"] = "https://fixture.invalid/browser",
                 ["url"] = "https://fixture.invalid/api", ["size"] = served.Length, ["digest"] = hash
             };
-            assets.Add(Asset(zip ? "HookshotBuilder.zip" : "HookshotBuilder.exe", digest));
+            assets.Add(Asset(zip ? "BlueShellBuilder.zip" : "BlueShellBuilder.exe", digest));
             if (omitDigest) assets[0].Remove("digest");
             if (list) assets.Add(new() { ["name"] = "hookshot-setup.txt" });
-            if (unusedBadZip) assets.Add(Asset("HookshotBuilder.zip", null));
+            if (unusedBadZip) assets.Add(Asset("BlueShellBuilder.zip", null));
             if (sumText != null)   // (git.notrexed.dev: the digest as <asset>.sha256 beside the file)
-                assets.Add(new() { ["name"] = (zip ? "HookshotBuilder.zip" : "HookshotBuilder.exe") + ".sha256",
+                assets.Add(new() { ["name"] = (zip ? "BlueShellBuilder.zip" : "BlueShellBuilder.exe") + ".sha256",
                                    ["browser_download_url"] = "https://fixture.invalid/sum" });
             var json = JsonSerializer.SerializeToUtf8Bytes(new { tag_name = "v9.9.9", assets });
             Handler.Respond = request =>
@@ -166,7 +166,7 @@ namespace DigestFixture
         public void NoUse()
         {
             Program.Check(Starts.Count == 0, "Unverified payload reached process-launch spy.");
-            Program.Check(!Directory.Exists(Path.Combine(Root, "current", "HookshotBuilder v9.9.9")), "Unverified ZIP was extracted.");
+            Program.Check(!Directory.Exists(Path.Combine(Root, "current", "BlueShellBuilder v9.9.9")), "Unverified ZIP was extracted.");
             Program.Check(File.ReadAllText(Path.Combine(Game, "keep.txt")) == "unchanged authored sentinel", "Game sentinel changed.");
         }
 
@@ -198,7 +198,7 @@ namespace DigestFixture
             using var bytes = new MemoryStream();
             using (var zip = new ZipArchive(bytes, ZipArchiveMode.Create, leaveOpen: true))
             {
-                var entry = zip.CreateEntry("HookshotBuilder/HookshotBuilder.exe", CompressionLevel.NoCompression);
+                var entry = zip.CreateEntry("BlueShellBuilder/BlueShellBuilder.exe", CompressionLevel.NoCompression);
                 entry.LastWriteTime = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
                 using var writer = new StreamWriter(entry.Open(), Encoding.ASCII);
                 writer.Write(text);
@@ -291,13 +291,13 @@ namespace DigestFixture
             });
             await Case("sha256-file-digest", async s =>
             {
-                s.Release(s.Good, null, omitDigest: true, sumText: State.Hash(s.Good)[7..] + "  HookshotBuilder.exe" + (char)10);
+                s.Release(s.Good, null, omitDigest: true, sumText: State.Hash(s.Good)[7..] + "  BlueShellBuilder.exe" + (char)10);
                 await s.SetupRun(); Check(s.Starts.Count == 1, "Setup with its .sha256 beside it not handed off.");
                 Check(File.ReadAllBytes(s.Setup).SequenceEqual(s.Good), "Valid payload changed."); s.NoPartial();
             });
             await Case("sha256-file-mismatch", async s =>
             {
-                s.Release(s.Good, null, omitDigest: true, sumText: new string('0', 64) + "  HookshotBuilder.exe" + (char)10);
+                s.Release(s.Good, null, omitDigest: true, sumText: new string('0', 64) + "  BlueShellBuilder.exe" + (char)10);
                 Check(await Rejects<InvalidDataException>(s.SetupRun), "A .sha256 that does not match was accepted.");
                 s.NoUse(); s.NoPartial();
             });
@@ -360,7 +360,7 @@ namespace DigestFixture
     }
 }
 
-namespace HookshotBuilder
+namespace BlueShellBuilder
 {
     sealed class Tools
     {

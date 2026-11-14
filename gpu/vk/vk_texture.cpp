@@ -4043,16 +4043,7 @@ void texture_written(Texture* tex, const char* why) {
     tex->gpu_gen = memory_generation();
     tex->released = false;
     tex->uploaded = true;
-    // (blueshell) a texture in a virtual pool: its page mapping as the GPU drew it is the baseline. Its first look at the
-    // mapping (an image only ever drawn has none) or a remap the game made before this drawing was otherwise found at the
-    // next sampling and taken for all of it written: guest memory uploaded over the drawing. MKW's Knockout Tour loading
-    // map, a 1920x1080 capture, showed the screen before it (the Start menu) or the fade's black. RX_VK_NO_DRAWN_MAP=1: off
-    static const bool drawn_map = !env_on("RX_VK_NO_DRAWN_MAP");
-    if (drawn_map && tex->gpu >= (1ull << 40) && !tex->sparse &&
-        (tex->page_map.empty() || tex->runs_maps_gen != host->maps_generation() + host->vmap_generation())) {
-        static thread_local Ranges seen;
-        texture_dirty(*tex, 0, seen);
-    }
+    // (blueshell: its own drawn-map note for the Knockout Tour backdrop gave way to Hookshot's drawn page map above, #325)
 }
 
 

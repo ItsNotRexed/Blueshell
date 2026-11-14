@@ -30,6 +30,8 @@ DRIVER = r'''#define _CRT_SECURE_NO_WARNINGS 1
 #include <map>
 #include <mutex>
 #include <utility>
+#include <vector>
+using Ranges = std::vector<std::pair<uint64_t, uint64_t>>;   // (blueshell: gpu_wrote_into's parts)
 static int fails;
 #define CHECK(x) do { if (!(x)) { std::printf("FAIL line %d: %s\n", __LINE__, #x); fails++; } } while (0)
 static void logf(const char*, ...) {}
@@ -109,7 +111,7 @@ def main():
     a = p.parse_args()
     src = (ROOT / "gpu/vk/vk_texture.cpp").read_text(encoding="utf-8")
     code = (DRIVER.replace("/* WRITER */", block(src, "void texture_gpu_wrote(uint64_t gpu, uint64_t size) {"))
-            .replace("/* READER */", block(src, "bool gpu_wrote_into(Texture& tex) {")))
+            .replace("/* READER */", block(src, "bool gpu_wrote_into(Texture& tex, Ranges* out) {").replace("Ranges* out) {", "Ranges* out = nullptr) {")))   # (blueshell: and its parts)
     with tempfile.TemporaryDirectory(prefix="gpu-write-intervals-") as tmp:
         cpp, exe = Path(tmp) / "intervals.cpp", Path(tmp) / "intervals.exe"
         cpp.write_text(code, encoding="utf-8")

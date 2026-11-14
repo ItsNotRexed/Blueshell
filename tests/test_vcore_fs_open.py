@@ -60,6 +60,7 @@ typedef struct { uint64_t x[32]; } Ctx;
 static int hos_trace;
 static int fs_trace(void) { return 0; }
 static void hos_log(const char *f, ...) { (void)f; }
+static void hos_unlock_on_open(const char *p) { (void)p; }   /* (blueshell: mkw_unlock.c, not this test's) */
 static const char *gstr(uint64_t a) { return (const char *)(uintptr_t)a; }
 
 /* the thread's virtual core, as hos_vcore_away / hos_vcore_back keep it (host/hos_thread.c) */

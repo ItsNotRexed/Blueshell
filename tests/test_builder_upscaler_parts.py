@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def check_source(source):
-    window = (source / "builder/HookshotBuilder/MainWindow.xaml.cs").read_text(encoding="utf-8")
+    window = (source / "builder/BlueShellBuilder/MainWindow.xaml.cs").read_text(encoding="utf-8")
     refresh = window[window.index("    void RefreshMode()"):window.index("\n    }", window.index("    void RefreshMode()"))]
     assert "UpscalerParts.Missing(OutPath.Text, DlssTick.IsChecked == true, FsrTick.IsChecked == true, fsrLicense)" in refresh
     assert "mode == Mode.UpToDate" in refresh and "if (lacking.Count > 0) mode = Mode.UpdateGame;" in refresh
@@ -36,7 +36,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="builder-upscalers-") as folder:
         root = Path(folder)
         shutil.copyfile(ROOT / "tests/builder_upscaler_parts_test.cs", root / "Program.cs")
-        shutil.copyfile(a.source / "builder/HookshotBuilder/UpscalerParts.cs", root / "UpscalerParts.cs")
+        shutil.copyfile(a.source / "builder/BlueShellBuilder/UpscalerParts.cs", root / "UpscalerParts.cs")
         (root / "NuGet.Config").write_text("<configuration><packageSources><clear/></packageSources></configuration>", encoding="utf-8")
         (root / "Fixture.csproj").write_text('''<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>
 <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings>

@@ -368,7 +368,8 @@ HDR, Detail, and GPU and memory (last: the rows to change when something is wron
 | | Microphone | Off, Default, or each microphone by name | Default |
 | | Game language | The game's 16 languages, each by its own name (after a restart) | The one built with |
 | | Menu language | Auto (the game's language), or English, Português (Brasil), Español (Latinoamérica), Español (España), Français, Deutsch, Italiano, Nederlands, Polski, Русский, 日本語, 한국어, 简体中文, 繁體中文 | Auto |
-| | Discord status | Off, On ("Playing Hookshot" and the time played in your Discord status, while Discord runs on this PC) | On |
+| | Discord status | Off, On ("Playing BlueShell" and the time played in your Discord status, while Discord runs on this PC) | On |
+| | Unlock everything | Off, On (every driver and outfit, kart and sticker, the Special Cup and Mirror added to your save when the game loads it; your progress stays, the save before goes to `save-backup-unlock`; after a restart) | Off |
 | | Skip opening | Off, On (skips the new-game opening: the story movie and Navi waking Link; later cutscenes and the title screen stay) | Off |
 | | Bug report | Saves a report into a new folder in `bug-reports` (below) | |
 | Controls | Controller in background | Off, On | Off |

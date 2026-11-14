@@ -91,7 +91,7 @@ def check_source():
     need(block(mem, "void memory_end_submission(VkCommandBuffer cmd, uint64_t part) {"),
          ["if (p->sparse) {   // (hookshot: never from a sparse mirror's block with no memory",
           "if (!sparse_gaps_outside_pools(*p, c.src, c.size)) {"], "memory_end_submission()")
-    need(block(mem, "void retire_pool(std::map<uint64_t, Pool>::iterator it) {"), ["std::erase(sparse_wanted, old)"], "retire_pool()")
+    need(block(mem, "void retire_pool(std::map<uint64_t, Pool>::iterator it, bool finalized) {"), ["std::erase(sparse_wanted, old)"], "retire_pool()")
     begin = block(mem, "void memory_begin_submission() {")
     need(begin, ["if (mirror_sparse_on()) {", "sparse_release();", "sparse_want_live();", "sparse_grow_all(grow);", "sparse_reap();"],
          "memory_begin_submission()")

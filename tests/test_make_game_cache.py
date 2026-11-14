@@ -353,7 +353,7 @@ class NupCacheTests(unittest.TestCase):
         with self.assertRaises(SystemExit) as result:
             self.run_to_lift(None, folders=self.extracted_dump(False, b"other version module"))
         self.assertEqual(result.exception.code, 1)
-        self.assertIn("This is build 01234567. Hookshot supports build %s." % make_game.BUILD_ID, self.output)
+        self.assertIn("This is build 01234567. BlueShell supports build %s." % make_game.BUILD_ID, self.output)
         self.assertEqual(self.cache(), before)
         # (the .nup read before is still what the folder holds: reused, and its supported code reaches the lift)
         with self.assertRaises(Prepared):

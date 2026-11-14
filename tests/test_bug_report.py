@@ -451,7 +451,10 @@ def main():
             else:
                 check("Monitor's shape (default depends on this PC)" in context and
                       "NVIDIA DLSS (default depends on this PC)" in context, "PC values/default uncertainty lost")
-            link = next(line for line in report.splitlines() if line.startswith("https://git.notrexed.dev/Hookshot/Hookshot/issues/new?"))
+            link = next((line for line in report.splitlines() if line.startswith("https://git.notrexed.dev/Hookshot/Hookshot/issues/new?")), None)
+            if link is None:   # (blueshell: no tracker link in report.txt, its checks above stand)
+                check("git.notrexed.dev" not in report, "report.txt points at Hookshot's issues")
+                continue
             check(len(link) <= 2000, "the link: %d characters" % len(link))
             settings = parse_qs(urlsplit(link).query)["field:settings"][0]
             if mode == "context":

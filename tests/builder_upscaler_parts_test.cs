@@ -1,4 +1,4 @@
-using HookshotBuilder;
+using BlueShellBuilder;
 
 // UpscalerParts.Missing over authored placeholder folders: no game, no NVIDIA or AMD file is used.
 static class Program

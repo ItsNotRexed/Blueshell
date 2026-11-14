@@ -96,8 +96,11 @@ struct Texture {   // (the fields the code cut out uses, as gpu/vk/vk_texture.h 
     uint64_t last_written = 0, first_written = 0, upload_value = 0, upload_seg = 0, bytes = 0;
     uint32_t id = 0;
     uint64_t first_seen = 0;
+    bool motion_wb = false, writeback_noted = false;   // (blueshell's motion write-back: not this test's)
+    uint64_t written_back_for = 0;
 };
 struct nvn_tex { uint64_t gpu = 0; };
+static bool motion_writeback(Texture*) { return false; }   // (blueshell: vk_texture.cpp's, not this test's)
 std::unordered_map<uint32_t, std::unique_ptr<Texture>> textures;
 std::unordered_multimap<uint64_t, Texture*> by_gpu;
 uint64_t frame_no = 1, rec_value = 0;

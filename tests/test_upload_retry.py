@@ -62,7 +62,7 @@ def main():
     epoch = touch.index("    tex->checked_epoch = epoch;\n    // (hookshot) an image whose last upload failed")
     wait = touch.find("if (tex->retry_frame > frame_no) return tex;")
     seen = touch.find("const uint64_t seen_before = tex->gpu_wrote_seen;")
-    wrote = touch.index("gpu_wrote_into(*tex)")
+    wrote = touch.index("gpu_wrote_into(*tex")   # (blueshell: and its parts, gpu_wrote_into(*tex, &dirty))
     dirty = touch.index("texture_dirty(*tex, since, dirty)")
     if not epoch < wait < seen < wrote < dirty:
         raise SystemExit("FAIL: the wait for a failed upload's retry is not before gpu_wrote_into and the dirty scan")

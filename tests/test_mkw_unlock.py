@@ -3,7 +3,7 @@ arrays): every listed driver, vehicle and sticker owned once with its new-item s
 Special Cup and Mirror opened, what the save had kept, a second run changing nothing, and a save of another layout left as
 it is. No game, no game data: the file and the arrays are built here.
 
-Run with: python -I tests/test_mkw_unlock.py [--cc clang]
+Run with: python -I tests/test_mkw_unlock.py [--cxx clang++]  (the files compiled as C)
 """
 import argparse
 import os
@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RUN_ALL_ARGS = ["--cc", "{cc}"]
+RUN_ALL_ARGS = ["--cxx", "{cxx}"]
 
 DRIVER = """
 #include <stdarg.h>
@@ -79,14 +79,14 @@ def read_list(b, off, n):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--cc", default="clang")
+    p.add_argument("--cxx", default="clang++")
     a = p.parse_args()
     drivers, vehicles, stickers = ids("driver"), ids("vehicle"), ids("sticker")
     with tempfile.TemporaryDirectory(prefix="mkw-unlock-") as tmp:
         tmp = Path(tmp)
         (tmp / "driver.c").write_text(DRIVER, encoding="utf-8")
         exe = tmp / ("t.exe" if os.name == "nt" else "t")
-        subprocess.run([a.cc, "-std=c11", "-Wall", "-Wextra", "-Werror", "-I", str(ROOT / "host"), str(ROOT / "host" / "mkw_unlock.c"),
+        subprocess.run([a.cxx, "-x", "c", "-std=c11", "-Wall", "-Wextra", "-Werror", "-I", str(ROOT / "host"), str(ROOT / "host" / "mkw_unlock.c"),
                         str(tmp / "driver.c"), "-o", str(exe)], check=True)
         save, at = make_save(drivers[3])
         (tmp / "in.sav").write_bytes(save)

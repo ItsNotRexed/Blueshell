@@ -226,10 +226,10 @@
             <TextBlock Style="{StaticResource Note}" FontSize="12" Margin="26,4,0,0" TextWrapping="Wrap"
                        Text="For AMD Radeon graphics cards. It is chosen in the game's Insert menu, as the Upscaler."/>
             <!-- (blueshell) where the game keeps its saves (make_game.py save-folder option, nx2/saves.py): empty, beside the game -->
-            <TextBlock x:Name="SaveLabel" Style="{StaticResource Label}" Text="SAVE FOLDER" Margin="0,16,0,0"/>
+            <TextBlock x:Name="SaveFolderLabel" Style="{StaticResource Label}" Text="SAVE FOLDER" Margin="0,16,0,0"/>
             <Grid>
               <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-              <TextBox x:Name="SavePath" Style="{StaticResource Path}" TextChanged="SaveChanged" AutomationProperties.LabeledBy="{Binding ElementName=SaveLabel}"
+              <TextBox x:Name="SavePath" Style="{StaticResource Path}" TextChanged="SaveChanged" AutomationProperties.LabeledBy="{Binding ElementName=SaveFolderLabel}"
                        ToolTip="Empty: the saves stay in the game folder's user folder. Saves already there are copied to a new, empty folder."/>
               <Button Grid.Column="1" Style="{StaticResource Quiet}" Margin="10,0,0,0" Content="Change" Click="BrowseSave"/>
               <Button Grid.Column="2" Style="{StaticResource Quiet}" Margin="10,0,0,0" Content="Beside the game" Click="ClearSave"/>
