@@ -2237,6 +2237,16 @@ def main(a=None):
         shutil.rmtree(kept, ignore_errors=True)
         shutil.copytree(exefs, kept)
     check_supported_build(exefs)
+    # (blueshell) code mods (the game folder's mods/<name>/exefs, .pchtxt or .ips): onto this build's copy of the code, before it
+    # is translated. The kept exefs stays the game as it was; a mod added or taken away is a build again (Update)
+    sys.path.insert(0, os.path.join(ROOT, "nx2"))
+    import exefs_mods
+    try:
+        applied, used = exefs_mods.apply(os.path.join(out, "mods"), exefs, log=lambda s: print(s, flush=True))
+    except ValueError as e:
+        fail("%s. Take that mod out of the game folder's mods folder (or rename its folder to start with -) and build again." % e)
+    if used:
+        say("stage", "lift", "Code mods: %d patches from %d files" % (applied, used))
 
     # (made once on the development PC: lists of addresses and counts, no game code)
     for name in ("hot_funcs.txt", "hot_order.txt", "hookshot_pieces.prof", "hookshot.res"):
