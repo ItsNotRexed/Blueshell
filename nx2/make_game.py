@@ -1711,6 +1711,7 @@ def lift_key(exefs, work, env, planning=True):
     # (hot_pieces.txt: split_hot's pieces of the last lift, which the next split keeps. The pieces' C follows it, so two work folders
     # with other histories may lift the same game into other pieces: their keys differ too)
     files += [(work, os.path.join(work, "hot_funcs.txt"))]
+    files += [(work, os.path.join(work, "exefs_mod_entries.txt"))]   # (blueshell: the code mods' branch targets, entries of the lift)
     if planning:
         files += [(work, os.path.join(work, "image", "chunks.txt")), (work, os.path.join(work, "image", "hot_pieces.txt"))]
     for base, f in files:
@@ -2327,7 +2328,8 @@ def main(a=None):
     sys.path.insert(0, os.path.join(ROOT, "nx2"))
     import exefs_mods
     try:
-        applied, used = exefs_mods.apply(os.path.join(out, "mods"), exefs, log=lambda s: print(s, flush=True))
+        mod_entries = os.path.join(work, "exefs_mod_entries.txt")
+        applied, used = exefs_mods.apply(os.path.join(out, "mods"), exefs, log=lambda s: print(s, flush=True), entries=mod_entries)
     except ValueError as e:
         fail("%s. Take that mod out of the game folder's mods folder (or rename its folder to start with -) and build again." % e)
     if used:
@@ -2390,7 +2392,9 @@ def main(a=None):
                                 fail("Could not remove earlier translated file %s: %s. The new translation has not started." %
                                      (os.path.join(gen_dir, f), e))
                 inputs = lift_key(exefs, work, env, planning=False)   # (what the lift reads and does not write, as it starts)
-                run(PY + ["nx2/lift.py", "--standalone", "--write", "--exefs", exefs, "--work", work], env)
+                # (blueshell) a code mod's caves: its branch targets as entries (nx2/exefs_mods.py)
+                more = ["--entries", mod_entries] if os.path.isfile(mod_entries) and os.path.getsize(mod_entries) > 80 else []
+                run(PY + ["nx2/lift.py", "--standalone", "--write", "--exefs", exefs, "--work", work] + more, env)
                 if os.path.isfile(os.path.join(work, "sa", "gen", "code_hot.c")):
                     run(PY + ["nx2/split_hot.py", os.path.join(work, "sa", "gen")], env)   # (eight files side by side: ~6 minutes, not 79)
                 # (the lift writes inputs of the next one: split_hot's kept pieces, image/hot_pieces.txt, which the key hashes. Its key is

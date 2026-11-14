@@ -145,6 +145,12 @@ class Module:
                 return
         raise ValueError("offset %#x (%d bytes) is outside the module's segments" % (mem, len(data)))
 
+    def read(self, mem, n):
+        for i, d in enumerate(self.datas):
+            if self.moff[i] <= mem and mem + n <= self.moff[i] + len(d):
+                return bytes(d[mem - self.moff[i]:mem - self.moff[i] + n])
+        return b""
+
     def save(self):
         hdr = bytearray(self.raw[:0x100])
         body = bytearray(self.name_bytes)
@@ -159,14 +165,30 @@ class Module:
             f.write(hdr + body)
 
 
+def branch_targets(mem, data):
+    """The B and BL targets the patch's whole words at <mem> write (memory offsets in the module): a mod's code in a gap of
+    the code, its caves, reached only by them, which the translator would not find otherwise (nx2/lift.py --entries)"""
+    out = []
+    start = (-mem) % 4
+    for i in range(start, len(data) - 3, 4):
+        w = int.from_bytes(data[i:i + 4], "little")
+        if (w & 0x7C000000) == 0x14000000:   # (B and BL: imm26, a word count)
+            imm = w & 0x3FFFFFF
+            if imm & 0x2000000:
+                imm -= 1 << 26
+            out.append(mem + i + imm * 4)
+    return out
+
+
 def same_build(a, b):
     a, b = a.lower().rstrip("0"), b.lower().rstrip("0")
     n = max(min(len(a), len(b)), 16)
     return a[:n] == b[:n]
 
 
-def apply(mods, exefs, log=print, dry=False):
-    """Every code mod in <mods> onto the modules of <exefs>; (patches applied, files used). Raises ValueError on a broken mod"""
+def apply(mods, exefs, log=print, dry=False, entries=None):
+    """Every code mod in <mods> onto the modules of <exefs>; (patches applied, files used). Raises ValueError on a broken mod.
+    entries: a file to write the branch targets of what was patched to, "<module>+<offset>" a line (nx2/lift.py --entries)"""
     if not os.path.isdir(mods):
         return 0, 0
     modules = {}
@@ -178,6 +200,7 @@ def apply(mods, exefs, log=print, dry=False):
             except ValueError:
                 continue
     applied = used = 0
+    patched = []   # ((module, memory offset, size)): the targets are read once every mod is on
     for folder in mod_folders(mods):
         mod = os.path.relpath(os.path.dirname(folder), mods)
         for f in sorted(os.listdir(folder)):
@@ -201,6 +224,7 @@ def apply(mods, exefs, log=print, dry=False):
             for mem, data in patches:
                 try:
                     target.patch(mem, data)
+                    patched.append((target, mem, len(data)))
                 except ValueError as e:
                     raise ValueError("the code mod %s, %s: %s" % (mod, f, e))
             applied += len(patches)
@@ -209,6 +233,16 @@ def apply(mods, exefs, log=print, dry=False):
     if not dry:
         for m in modules.values():
             m.save()
+    if entries is not None:
+        found = set()
+        for m, mem, n in patched:
+            name = os.path.basename(m.path)
+            found |= {(name, t) for t in branch_targets(mem, m.read(mem, n)) if m.read(t, 4)}
+        with open(entries, "w", encoding="utf-8", newline="\n") as f:
+            f.write("# code mods' branch targets (nx2/exefs_mods.py): the translator's extra entries\n")
+            f.writelines("%s+%x\n" % e for e in sorted(found))
+        if found:
+            log("exefs mods: %d branch targets given to the translator as entries" % len(found))
     return applied, used
 
 

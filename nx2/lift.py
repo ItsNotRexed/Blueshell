@@ -154,7 +154,13 @@ def main():
     if img.unresolved:
         print("  unresolved: " + ", ".join(sorted(img.unresolved)[:16]))
     if a.entries:
-        extra = {int(l.split()[0], 16) for l in open(a.entries) if l.strip() and not l.startswith("#")}
+        # (blueshell) a line "<module>+<hex offset>" is an address in that module (nx2/exefs_mods.py's code mods' branch
+        # targets), as the image placed it; otherwise a hex address
+        bases = {m["name"]: m["base"] for m in meta["modules"]}
+        def entry(word):
+            name, plus, off = word.partition("+")
+            return bases[name] + int(off, 16) if plus and name in bases else int(word, 16)
+        extra = {entry(l.split()[0]) for l in open(a.entries) if l.strip() and not l.startswith("#")}
         new = {e for e in extra if img.in_code(e)} - img.entries
         img.entries |= new
         print("extra entries: %d of %d listed are new code addresses" % (len(new), len(extra)))
