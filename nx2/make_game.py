@@ -827,17 +827,27 @@ def check_mingw():
     if not os.path.isfile(cc):   # (HOOKSHOT_MINGW set to a folder without the compiler: said here, not as a silent SystemExit)
         fail("The builder's own compiler was not found at %s. Set HOOKSHOT_MINGW to an llvm-mingw folder, or unpack the "
              "BlueShell Builder zip again into a folder your antivirus allows." % cc)
-    with tempfile.TemporaryDirectory() as d:
-        src = os.path.join(d, "t.c")
-        with open(src, "w") as f:
-            f.write(chr(10).join(("#include <stdio.h>", "#include <windows.h>", "int main(void) { return 0; }", "")))
-        r = subprocess.run([cc] + toolchain.native_target() + toolchain.native_link() +
-                           [src, "-o", os.path.join(d, "t.exe")], capture_output=True, text=True, encoding="utf-8", errors="replace")
-    if r.returncode:
+    # (blueshell) twice, each in a folder of its own: a temp folder gone or not writable for a moment (a cleaner, another
+    # program's sweep of %TEMP%) failed the first build with "cannot open output file" and blamed the antivirus
+    for attempt in range(2):
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, "t.c")
+            with open(src, "w") as f:
+                f.write(chr(10).join(("#include <stdio.h>", "#include <windows.h>", "int main(void) { return 0; }", "")))
+            r = subprocess.run([cc] + toolchain.native_target() + toolchain.native_link() +
+                               [src, "-o", os.path.join(d, "t.exe")], capture_output=True, text=True, encoding="utf-8",
+                               errors="replace")
+        if not r.returncode:
+            break
         print(r.stdout + r.stderr, flush=True)
+    if r.returncode:
         errors = [l for l in r.stderr.splitlines() if "error" in l]
+        first = errors[0] if errors else "no message"
+        if "cannot open output file" in first:   # (the compiler is there and ran: the folder it wrote in was the trouble)
+            fail("The builder's own compiler ran but could not write its test program in the temp folder (%s): %s. Check that "
+                 "the drive has free space and nothing clears that folder, then build again." % (tempfile.gettempdir(), first))
         fail("The builder's own compiler (tools/llvm-mingw) could not build a test program: %s. Unpack the zip again into a folder "
-             "your antivirus allows." % (errors[0] if errors else "no message"))
+             "your antivirus allows." % first)
     print("the compiler: %s (no Visual Studio needed)" % os.environ["HOOKSHOT_MINGW"], flush=True)
 
 
