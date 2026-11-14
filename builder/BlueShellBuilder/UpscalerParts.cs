@@ -1,6 +1,6 @@
 using System.IO;
 
-namespace HookshotBuilder;
+namespace BlueShellBuilder;
 
 /// The upscalers ticked here that a built game folder lacks: a game is built with NVIDIA DLSS or AMD FSR 4 or without it,
 /// so ticking one after the game was built changes nothing until the folder is built again. The Builder then offers Update

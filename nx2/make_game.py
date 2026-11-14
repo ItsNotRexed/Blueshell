@@ -2013,6 +2013,9 @@ def parse_args():
     p.add_argument("--fetch-ngx-sdk", action="store_true", help="download NVIDIA's DLSS SDK into HOOKSHOT_NGX_SDK before the build")
     p.add_argument("--accept-nvidia-license", action="store_true", help="NVIDIA's DLSS SDK license, accepted (with --fetch-ngx-sdk)")
     # (AMD FSR 4, off unless asked: nothing is downloaded. gpu/vk/vk_fsr4.cpp)
+    p.add_argument("--save-folder", help="(blueshell) keep the game's saves in this folder (empty: beside the game, as before)")
+    p.add_argument("--full-save", action="store_true",
+                   help="(blueshell) start with a player-made 100%% save, downloaded from GameBanana (nx2/saves.py); the save before is backed up")
     p.add_argument("--fsr", action="store_true", help="build with AMD FSR 4 (AMD's DLLs are not included: see the readme)")
     p.add_argument("--no-fsr", action="store_true", help="with --update: build without AMD FSR 4 even if the folder had it")
     p.add_argument("--fetch-fsr-runtime", action="store_true",
@@ -2557,6 +2560,27 @@ def main(a=None):
         not_prepared(skipped)
     else:
         prepare_shaders([os.path.join(game_dir, BESIDE[0]), "--prepare-shaders"], out)
+    if a.save_folder is not None or a.full_save:   # (blueshell: the Builder's Save folder and 100% save)
+        sys.path.insert(0, os.path.join(ROOT, "nx2"))
+        import saves
+        beside = os.path.join(out, "user")
+        if a.save_folder is not None:
+            root = saves.save_folder(out, a.save_folder)
+            # (saves beside the game, and a new folder without any: they go along, copied, the old ones left as they were)
+            if a.save_folder and os.path.isdir(os.path.join(beside, "save")) and not os.path.isdir(os.path.join(root, "save")):
+                shutil.copytree(os.path.join(beside, "save"), os.path.join(root, "save"))
+                print("the saves in %s were copied to %s" % (beside, root), flush=True)
+        else:
+            root = beside
+            ini = os.path.join(out, "hookshot_options.ini")
+            if os.path.isfile(ini):
+                with open(ini, encoding="utf-8", errors="replace") as f:
+                    root = next((l[12:].strip() for l in f if l.startswith("save_folder=") and l[12:].strip()), beside)
+        if a.full_save:
+            try:
+                saves.full_save(root, say=lambda s: print(s, flush=True))
+            except (OSError, ValueError, KeyError) as e:   # (the game is built: only the save is not changed)
+                print("The 100%% save was not installed: %s. Your saves are as they were." % e, flush=True)
     say("done", out)
 
 

@@ -1888,6 +1888,25 @@ static int game_main(int argc, char **argv) {
             if (GetFileAttributesA(beside_image) != INVALID_FILE_ATTRIBUTES) {
                 image = beside_image;
                 if (!hos_romfs_dir) hos_romfs_dir = beside_romfs;
+                {   /* (blueshell) save_folder=<dir> in hookshot_options.ini (the Builder's Save folder): the saves there */
+                    static char chosen[MAX_PATH];
+                    char ini[MAX_PATH];
+                    snprintf(ini, MAX_PATH, "%s" SEP_S "hookshot_options.ini", dir);
+                    FILE *f = hos_user_dir ? NULL : fopen(ini, "r");
+                    char line[MAX_PATH + 16];
+                    while (f && fgets(line, sizeof line, f)) {
+                        if (strncmp(line, "save_folder=", 12)) continue;
+                        size_t n = strlen(line + 12);
+                        while (n && (line[12 + n - 1] == '\n' || line[12 + n - 1] == '\r')) n--;
+                        if (n && n < MAX_PATH) {
+                            memcpy(chosen, line + 12, n), chosen[n] = 0;
+                            CreateDirectoryA(chosen, NULL);
+                            if (GetFileAttributesA(chosen) != INVALID_FILE_ATTRIBUTES) hos_user_dir = chosen;
+                            else hos_log("saves: the save folder %s from hookshot_options.ini cannot be made: the saves stay beside the game", chosen);
+                        }
+                    }
+                    if (f) fclose(f);
+                }
 #ifndef _WIN32
                 if (!hos_user_dir) hos_user_dir = saves_dir(beside_user);
 #else

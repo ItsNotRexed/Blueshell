@@ -795,6 +795,12 @@ public partial class MainWindow : Window
     }
 
     void BrowseOut(object sender, RoutedEventArgs e) => OutPath.Text = PickFolder("Choose where the game goes") ?? OutPath.Text;
+    // (blueshell) the Save folder: empty is beside the game (its user folder)
+    // (only a folder changed here is passed on: an empty box is not taken as "beside the game" for a folder that has one already)
+    bool saveTouched;
+    void BrowseSave(object sender, RoutedEventArgs e) => SavePath.Text = PickFolder("Choose where the game keeps its saves") ?? SavePath.Text;
+    void ClearSave(object sender, RoutedEventArgs e) { SavePath.Text = ""; saveTouched = true; }
+    void SaveChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) => saveTouched = true;
 
     void BrowseWork(object sender, RoutedEventArgs e)
     {
@@ -890,6 +896,8 @@ public partial class MainWindow : Window
         else return;
         args.AddRange(new[] { "--out", OutPath.Text, "--language", lang.Code });
         if (FsrTick.IsChecked == true) args.Add("--fsr");   // (an --update of the folder keeps it: make_game.py's mark)
+        if (saveTouched) args.AddRange(new[] { "--save-folder", SavePath.Text.Trim() });   // (blueshell: empty, beside the game)
+        if (FullSaveTick.IsChecked == true) args.Add("--full-save");
         prepareNow = PrepareTick.IsChecked == true;
         Run(tools, ShaderStep.Args(args, prepareNow), dlss: DlssTick.IsChecked == true,
             fsr: FsrTick.IsChecked == true && fsrLicense);
