@@ -4652,7 +4652,10 @@ void present_image(VkImage src, uint32_t sw, uint32_t sh, const int crop[4], VkI
     full_barrier(f.cmd);   // (after the game's work for the frame: earlier submits on this queue)
     image_barrier(f.cmd, dst, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     const PresentAspect aspect{src && host && host->aspect_ratio ? host->aspect_ratio() : 0.0f};
-    const PresentRect rect = present_rect(sw, sh, crop, dev.swap_extent.width, dev.swap_extent.height, aspect);
+    PresentRect rect = present_rect(sw, sh, crop, dev.swap_extent.width, dev.swap_extent.height, aspect);
+    // (blueshell) Stretch to window: the game's frame over the whole window, as an emulator's "Stretch to Window" for a code
+    // mod that widens the 3D view inside the 16:9 frame (GameBanana's MKW Ultrawide + HUD Fix: Aspect ratio 16:9 with it)
+    if (src && opts.stretch) rect = {0, 0, dev.swap_extent.width, dev.swap_extent.height};
     [[maybe_unused]] uint32_t trace_route = 0; // direct; 1 scaled, 2 clear, 3 HDR conversion
     const bool has_bars = rect.x || rect.y || rect.w != dev.swap_extent.width || rect.h != dev.swap_extent.height;
     if (has_bars) {

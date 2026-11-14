@@ -1195,6 +1195,13 @@ Row rows[] = {
      "The picture's shape: your monitor's own (the default: wider on an ultrawide, narrower on 4:3 or 16:10), the game's "
      "16:9, or another your screen has. The Output resolution lists that shape's sizes. Applies after a restart.", hn_ultrawide,
      true, true},
+#ifdef RX_GAME_MKW
+    // (blueshell) for an ultrawide code mod (GameBanana's Ultrawide + HUD Fix): its wide view fills the window
+    {TAB_GRAPHICS, "Stretch to window", &opts.stretch, 0, 1, 1, tx_onoff,
+     "Stretches the game's picture over the whole window, as an emulator's Stretch to Window. For an ultrawide mod in the "
+     "game folder's mods folder: set the Aspect ratio to 16:9 with it. Off: the picture keeps its shape, with bars beside it.",
+     nullptr, false, true},
+#endif
     {TAB_GRAPHICS, "Output resolution", &opts.output_res, 0, 0, 1, tx_output_res,
      "The game's whole frame, HUD included, before it is scaled to the window. Docked only. Applies after a restart.",
      hn_output_res, true, true},
