@@ -37,6 +37,8 @@ struct Texture {
     std::vector<uint8_t> tail_bound;            // (per layer, or [0] with SINGLE_MIPTAIL: its mip tail has memory)
     std::vector<VkDeviceMemory> sparse_chunks;  // (the device memory blocks are taken from, 64 MB at a time)
     VkDeviceSize chunk_used = 0;
+    struct SparseFree { VkDeviceMemory memory; VkDeviceSize offset, size; };
+    std::vector<SparseFree> sparse_free;        // (taken for binds that failed: given out again before the chunks)
     VkSparseImageMemoryRequirements sparse_req{};
     uint32_t sparse_type = 0;
     VkDeviceSize sparse_align = 0;
@@ -55,7 +57,7 @@ struct Texture {
     // contents
     bool uploaded = false;    // from guest memory, as of upload_gen
     uint32_t upload_gen = 0;
-    uint64_t bc_retry_frame = 0;   // (hookshot) a BC3 image whose upload failed: tried again from this frame (vk_texture.cpp)
+    uint64_t retry_frame = 0;   // (hookshot) an image whose upload failed: tried again from this frame (vk_texture.cpp)
     uint64_t map_sig = 0;     // (a texture in a virtual pool: its pages' mapping when last uploaded)
     std::vector<uint64_t> page_map;   // (and each 64 KB page's guest address then: what a remap changed)
     struct Run { uint64_t off, guest, n; };   // (and its storage as runs of contiguous guest memory)
