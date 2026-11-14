@@ -202,6 +202,7 @@ class BuilderTests(unittest.TestCase):
         self.assertIn("slow_disk_warning(out)", source)
         self.assertIn("askokcancel", source)
 
+class MakeGameTests(unittest.TestCase):
     def test_make_game_warns_before_it_builds(self):
         source = (ROOT / "nx2" / "make_game.py").read_text(encoding="utf-8")
         self.assertIn("warn_slow_disk(out, work)", source)

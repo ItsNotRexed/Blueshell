@@ -6,9 +6,10 @@ files, so a copy is all it takes.
     python -I scripts/oot_saves.py export <name>  [--profile ID] [--keep-settings] [--dry-run] [--force]
     python -I scripts/oot_saves.py import --from DIR   (a save from any folder into Hookshot)
     python -I scripts/oot_saves.py export --to DIR     (Hookshot's save into any folder)
+    --json (any command): one line of JSON on stdout instead of text, for the builders' Saves page
 
 import copies into Hookshot, export copies out of it. <name> is one of EMULATORS below: lichii, frizti, orchid,
-pokedinner, eden, eglantine or nx2navi (to-lichii and to-hookshot still work: they are export lichii and import
+pokedinner, eden, eglantine, nx2navi or longshot (Hookshot with add-ons: the same save files) (to-lichii and to-hookshot still work: they are export lichii and import
 lichii). --from/--to name the other side's folder instead of where it is looked for: the save folder itself (the one
 with account.sav and slot_*), or a folder above it (an emulator's data folder, a portable user folder, NX2navi's game
 folder), which is searched for the game's saves. --hookshot DIR does the same for Hookshot's side: its data folder
@@ -20,16 +21,20 @@ Standard library only; the guide is docs/saves.md.
 """
 import argparse
 import collections
+import contextlib
 import datetime
+import json
 import os
 import re
 import shutil
 import stat
+import tempfile
 import subprocess
 import sys
 
 TITLE = "0400486024DEC000"
 NO_ACCOUNT = "0000000000000000"
+USER_ID = "5a3c9e1f0b7d24680000000000000001"   # (the one user Hookshot plays as: user_uid, host/nn_applet.c)
 WINDOWS = os.name == "nt"
 
 Program = collections.namedtuple("Program", "name display folders processes aliases")
@@ -52,6 +57,8 @@ EMULATORS = [
     Program("nx2navi", "NX2navi", {"linux": ["{home}/Games/Ocarina"],
                                    "windows": ["{localappdata}/Programs/NX2navi/game", "C:/Games/Ocarina"]},
             ["nx2navi", "ocarina"], []),
+    # (Longshot: Hookshot with add-ons and the same save code, so its saves copy as they are. Windows: its builder's game folder)
+    Program("longshot", "Longshot", {"linux": ["{data}/longshot"], "windows": ["{home}/Games/Longshot"]}, ["longshot"], []),
 ]
 HOOKSHOT = Program("hookshot", "Hookshot", {"linux": ["{data}/hookshot"], "windows": []}, ["hookshot"], [])
 FOLDER = Program("folder", "the folder", {"linux": [], "windows": []}, [], [])
@@ -305,15 +312,16 @@ def copy_saves(src, dst, backup, keep_settings, dry_run):
     names = slots(src)
     if not names:
         raise Fail("%s has no slot_* folders: nothing to copy" % src)
-    for s in names:
-        refuse_links(os.path.join(src, s))
-    for f in ("account.sav", "option.sav"):
-        if os.path.lexists(os.path.join(src, f)):
-            refuse_links(os.path.join(src, f))
-    files = [f for f in ("account.sav", "option.sav") if os.path.isfile(os.path.join(src, f))]
+    files = [f for f in ("account.sav", "option.sav") if os.path.lexists(os.path.join(src, f))]
+    for n in names + files:
+        refuse_links(os.path.join(src, n))
     if keep_settings and "option.sav" in files:
         files.remove("option.sav")
-    print("%s %s -> %s" % ("Would back up" if dry_run else "Backing up", dst, backup))
+    had = os.path.isdir(dst)
+    if had:
+        print("%s %s -> %s" % ("Would back up" if dry_run else "Backing up", dst, backup))
+    else:
+        print("%s %s (there is no save there yet)" % ("Would make" if dry_run else "Making", dst))
     print("%s %d slot(s) (%s) and %s from %s to %s" % ("Would copy" if dry_run else "Copying", len(names), ", ".join(names),
           ", ".join(files) or "no loose files", src, dst))
     if keep_settings:
@@ -321,15 +329,91 @@ def copy_saves(src, dst, backup, keep_settings, dry_run):
     if dry_run:
         print("Dry run: nothing was changed")
         return
-    os.makedirs(os.path.dirname(backup), exist_ok=True)
-    shutil.copytree(dst, backup)
-    for s in slots(dst):
-        shutil.rmtree(os.path.join(dst, s))
-    for s in names:   # (links were refused above; copied as links, never followed, all the same)
-        shutil.copytree(os.path.join(src, s), os.path.join(dst, s), symlinks=True)
-    for f in files:
-        shutil.copy2(os.path.join(src, f), os.path.join(dst, f), follow_symlinks=False)
-    print("Done. Backup of the old %s in %s" % (dst, backup))
+    if had:
+        os.makedirs(os.path.dirname(backup), exist_ok=True)
+        shutil.copytree(dst, backup)
+    # The new save is copied whole into a folder on the target's disk first, and the target's slots are swapped for it
+    # by renames only after that worked: a copy that fails (a full disk) leaves the target as it was. (Inside the target,
+    # so also when it links to another disk, is a disk of its own or sits in a folder that can't be written.)
+    staging = dst if had else os.path.dirname(os.path.abspath(dst))
+    os.makedirs(staging, exist_ok=True)
+    incoming = tempfile.mkdtemp(prefix=".%s-incoming-" % os.path.basename(dst), dir=staging)
+    try:
+        for s in names:   # (links were refused above; copied as links, never followed, all the same)
+            shutil.copytree(os.path.join(src, s), os.path.join(incoming, s), symlinks=True)
+        for f in files:
+            shutil.copy2(os.path.join(src, f), os.path.join(incoming, f), follow_symlinks=False)
+        if not had:
+            os.makedirs(dst)
+        aside = swap_in(dst, incoming, names + files, slots(dst) + [f for f in files if os.path.lexists(os.path.join(dst, f))],
+                        backup if had else None)
+    except BaseException:
+        if not remove_tree(incoming):
+            print("Could not delete %s: delete it by hand" % incoming, file=sys.stderr)
+        raise
+    left = [p for p in (incoming, aside) if not remove_tree(p)]
+    if left:
+        # (a leftover folder in a save makes save_problems refuse it as a Hookshot save to import)
+        print("Copied, but could not delete %s: delete %s by hand." % (" and ".join(left), "them" if len(left) > 1 else "it"))
+    print("Done." + (" Backup of the old %s in %s" % (dst, backup) if had else ""))
+
+
+def remove_tree(path):
+    """Deletes path, also a file in it that is read-only (Windows refuses to delete those). True when it is gone."""
+    def writable_then_again(func, name, _):
+        os.chmod(name, stat.S_IWRITE)
+        func(name)
+    try:
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=writable_then_again)
+        else:
+            shutil.rmtree(path, onerror=writable_then_again)
+    except OSError:
+        pass
+    return not os.path.lexists(path)
+
+
+def swap_in(dst, incoming, new, old, backup):
+    """Moves the old entries of dst aside and the new ones from incoming into dst, all renames on one disk, and returns the
+    folder the old ones are in. If one fails the moves are undone, so dst has either all of its old entries or all of the
+    new ones; when a move back fails too (a file held open on Windows), the others are still put back and the old entries
+    that could not be stay in that folder, which is named in the error."""
+    aside = tempfile.mkdtemp(prefix=".%s-old-" % os.path.basename(dst), dir=os.path.dirname(incoming))
+    moved, placed = [], []
+    try:
+        for n in old:
+            os.replace(os.path.join(dst, n), os.path.join(aside, n))
+            moved.append(n)
+        for n in new:
+            os.replace(os.path.join(incoming, n), os.path.join(dst, n))
+            placed.append(n)
+    except BaseException as error:
+        new_left, old_left = [], []
+        for n in reversed(placed):
+            try:
+                os.replace(os.path.join(dst, n), os.path.join(incoming, n))
+            except OSError:
+                new_left.append(n)
+        for n in reversed(moved):
+            try:
+                if os.path.lexists(os.path.join(dst, n)):   # (its new one could not be moved out)
+                    raise FileExistsError(n)
+                os.replace(os.path.join(aside, n), os.path.join(dst, n))
+            except OSError:
+                old_left.append(n)
+        if not new_left and not old_left:
+            os.rmdir(aside)
+            raise
+        left = []
+        if old_left:
+            left.append("old ones left in %s: %s" % (aside, ", ".join(sorted(old_left))))
+        if new_left:
+            left.append("new ones left in the target: %s" % ", ".join(sorted(new_left)))
+        raise Fail("copying into %s failed (%s), and so did putting everything back (%s). %s"
+                   % (dst, error, "; ".join(left),
+                      "Close whatever holds those files, then put the old save back from the backup, %s" % backup if backup
+                      else "There was no save there before")) from error
+    return aside
 
 
 def program_named(name):
@@ -340,16 +424,67 @@ def program_named(name):
                % (name, ", ".join(p.name for p in EMULATORS)))
 
 
+def save_info(path):
+    out = []
+    for s in slots(path):
+        p = os.path.join(path, s, "progress.sav")
+        when = datetime.datetime.fromtimestamp(os.path.getmtime(p)).isoformat(timespec="seconds") if os.path.isfile(p) else None
+        out.append({"slot": s, "saved": when})
+    return out
+
+
+def list_json(args):
+    """list as one JSON object: Hookshot's save, and every other program's folder with saves (programs that share a
+    folder are one entry, named by the first of them, as import takes it)"""
+    out = {"sources": [], "running": running_games()}
+    try:
+        folder, found = locate(HOOKSHOT, args.hookshot, "--hookshot")
+        out["hookshot"] = {"folder": folder, "saves": [{"profile": k, "path": v, "slots": save_info(v)}
+                                                       for k, v in sorted(found.items())]}
+    except Fail as e:
+        out["hookshot"] = {"error": str(e)}
+    groups = collections.OrderedDict()
+    for program in EMULATORS:
+        used = next((d for d in folders(program) if os.path.isdir(d) and find_saves(d)), None)
+        if used:
+            groups.setdefault(used, []).append(program)
+    for where, programs in groups.items():
+        saves = [{"profile": k, "path": v, "slots": save_info(v), "pending": pending_commit(v)}
+                 for k, v in sorted(find_saves(where).items()) if slots(v)]
+        if saves:
+            out["sources"].append({"name": programs[0].name, "display": " / ".join(p.display for p in programs),
+                                   "folder": where, "saves": saves})
+    print(json.dumps(out))
+
+
+def hookshot_target(args):
+    """Hookshot's save folders for an import; when it has none yet, its save folder made (where the game makes it)"""
+    try:
+        return locate(HOOKSHOT, args.hookshot, "--hookshot")[1]
+    except Fail:
+        root = args.hookshot or (None if WINDOWS else folders(HOOKSHOT)[0])
+        if not root:
+            raise
+        if WINDOWS and not os.path.isdir(root):
+            raise Fail("no game folder at %s: build the game there first" % root)
+        user = WINDOWS or os.path.isdir(os.path.join(root, "user"))
+        save = os.path.join(root, *(["user"] if user else []), "save", USER_ID)
+        if not args.dry_run:
+            os.makedirs(save, exist_ok=True)
+        print("Hookshot has no save yet: made %s" % save, file=sys.stderr if args.json else sys.stdout)
+        return {USER_ID: save}
+
+
 def run(args):
     if args.command == "list":
-        list_all(args)
+        list_json(args) if args.json else list_all(args)
         return
     other = program_named(args.name) if args.name else FOLDER
     if other is FOLDER and not args.folder:
         raise Fail("%s what? Name the emulator (%s) or the folder (%s <folder>)"
                    % (args.command, ", ".join(p.name for p in EMULATORS), "--from" if args.command == "import" else "--to"))
     flag = "--from" if args.command == "import" else "--to"
-    _, hs = locate(HOOKSHOT, args.hookshot, "--hookshot")
+    hs = hookshot_target(args) if args.command == "import" else locate(HOOKSHOT, args.hookshot, "--hookshot")[1]
     _, em = locate(other, args.folder, flag)
     hs_id, hs_path = pick(hs, "Hookshot", "--hookshot <the user id folder>")
     em_id, em_path = pick(em, other.display, "--profile <id>", args.profile)
@@ -372,7 +507,13 @@ def run(args):
     while os.path.exists(backup):   # (two copies in the same second)
         n += 1
         backup = "%s-%d" % (base, n)
-    copy_saves(src, dst, backup, args.keep_settings, args.dry_run)
+    if args.json:
+        with contextlib.redirect_stdout(sys.stderr):   # (the text goes to stderr; stdout holds only the answer)
+            copy_saves(src, dst, backup, args.keep_settings, args.dry_run)
+        print(json.dumps({"ok": True, "from": src, "to": dst, "backup": None if args.dry_run else backup,
+                          "dry_run": args.dry_run, "slots": slots(src)}))
+    else:
+        copy_saves(src, dst, backup, args.keep_settings, args.dry_run)
 
 
 def main(argv=None):
@@ -390,6 +531,7 @@ def main(argv=None):
     p.add_argument("--dry-run", action="store_true", help="say what would happen and change nothing")
     p.add_argument("--force", action="store_true",
                    help="copy even if a game seems to be running, or NX2navi has a save waiting")
+    p.add_argument("--json", action="store_true", help="answer with one line of JSON (the builders' Saves page)")
     args = p.parse_args(argv)
     if args.command in ("to-lichii", "to-hookshot"):
         if args.name:
@@ -401,6 +543,8 @@ def main(argv=None):
     try:
         run(args)
     except Fail as e:
+        if args.json:
+            print(json.dumps({"error": str(e)}))
         print("error: %s" % e, file=sys.stderr)
         return 1
     return 0

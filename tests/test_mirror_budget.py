@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def block(text, marker):
+    if marker not in text:
+        raise SystemExit("gpu/vk/vk_memory.cpp no longer has: " + marker)
     start = text.index(marker)
     end = text.index("{", start) + 1
     depth = 1
@@ -31,7 +33,7 @@ def check_source():
     budget = block(mem, "uint64_t mirror_budget() {")
     for needle in ['getenv("RX_VK_MIRROR_MB")',
                    "mirror_rule::auto_bytes(device_vram_bytes())",
-                   "mirror_rule::preset_bytes((uint64_t)opts.mirror_mb << 20, opts.budget > 0, device_vram_bytes())"]:
+                   "mirror_rule::budget_bytes((uint64_t)opts.mirror_mb << 20, opts.budget > 0, device_vram_bytes())"]:
         if needle not in budget:
             raise SystemExit("vk_memory.cpp: mirror_budget() no longer has: " + needle)
     if "vram / 8" in budget or "vram / 4" in budget:
