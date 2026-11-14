@@ -168,15 +168,25 @@ class Module:
 def branch_targets(mem, data):
     """The B and BL targets the patch's whole words at <mem> write (memory offsets in the module): a mod's code in a gap of
     the code, its caves, reached only by them, which the translator would not find otherwise (nx2/lift.py --entries)"""
+    # (and the conditional ones: a mod's pieces in the gaps between functions branch into each other with B.cond, CBZ/CBNZ
+    # and TBZ/TBNZ too, the Ultrawide + HUD Fix's HUD folder among them: a piece reached only by one was not translated)
+    def signed(v, bits):
+        return v - (1 << bits) if v & (1 << (bits - 1)) else v
     out = []
     start = (-mem) % 4
     for i in range(start, len(data) - 3, 4):
         w = int.from_bytes(data[i:i + 4], "little")
-        if (w & 0x7C000000) == 0x14000000:   # (B and BL: imm26, a word count)
-            imm = w & 0x3FFFFFF
-            if imm & 0x2000000:
-                imm -= 1 << 26
-            out.append(mem + i + imm * 4)
+        if (w & 0x7C000000) == 0x14000000:     # B, BL: imm26
+            off = signed(w & 0x3FFFFFF, 26)
+        elif (w & 0xFF000010) == 0x54000000:   # B.cond: imm19
+            off = signed((w >> 5) & 0x7FFFF, 19)
+        elif (w & 0x7E000000) == 0x34000000:   # CBZ, CBNZ: imm19
+            off = signed((w >> 5) & 0x7FFFF, 19)
+        elif (w & 0x7E000000) == 0x36000000:   # TBZ, TBNZ: imm14
+            off = signed((w >> 5) & 0x3FFF, 14)
+        else:
+            continue
+        out.append(mem + i + off * 4)
     return out
 
 
@@ -233,6 +243,34 @@ def apply(mods, exefs, log=print, dry=False, entries=None):
     if not dry:
         for m in modules.values():
             m.save()
+    # (a mod's code reached by a BL it patched in may come back with "ldp x29, x30, [sp], ... ; b <the BL's next
+    # instruction>", a return as a branch: the same on the console, x30 holds that address. Translated, every function is a C
+    # function, and that B runs the rest of the caller once more as code of its own, its epilogue included, before the
+    # call it came from returns: the caller then went on with its frame gone (the Ultrawide + HUD Fix's SM, the sub monitor's
+    # player arrow: x19 0, a crash at the Single Player menu). Such a B is written as RET)
+    def words(m, ranges):
+        for mem, n in ranges:
+            data = m.read(mem, n)
+            for i in range((-mem) % 4, len(data) - 3, 4):
+                yield mem + i, int.from_bytes(data[i:i + 4], "little")
+
+    rets = 0
+    for m in modules.values():
+        ranges = [(mem, n) for pm, mem, n in patched if pm is m]
+        if not ranges:
+            continue
+        inside = lambda a: any(mem <= a < mem + n for mem, n in ranges)
+        # (the next instruction of each BL the mods wrote that goes into their own code: where such a call returns)
+        ret_at = {pc + 4 for pc, w in words(m, ranges)
+                  if (w & 0xFC000000) == 0x94000000 and inside(branch_targets(pc, w.to_bytes(4, "little"))[0])}
+        for pc, w in list(words(m, ranges)):
+            if (w & 0xFC000000) == 0x14000000 and branch_targets(pc, w.to_bytes(4, "little"))[0] in ret_at:
+                m.patch(pc, (0xD65F03C0).to_bytes(4, "little"))   # RET
+                rets += 1
+        if rets and not dry:
+            m.save()
+    if rets:
+        log("exefs mods: %d returns written as branches to a hooked call's next instruction made RET" % rets)
     if entries is not None:
         found = set()
         for m, mem, n in patched:
