@@ -84,6 +84,7 @@ static class Updater
     /// newest of the release candidates and releases, else the latest release; nightly: the nightly's setup list's tag
     public static async Task<string?> LatestTag(string track)
     {
+        if (NoFeed) return null;   // (blueshell: local only, as host/hos_update.c)
         if (track == Release) return await LatestTag();
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("BlueShellBuilder");
@@ -125,8 +126,13 @@ static class Updater
     static string ReleaseApi(string? tag) => tag == null || TrackOf(tag) == Release ? Latest : Releases + "/tags/" + ReleaseOf(tag);
 
     /// The latest release's tag, quietly (null: GitHub did not answer); a few tries, 20 s at most
+    /// (blueshell) no release feed yet: NotRexed/BlueShell has no releases, and Hookshot's would offer Hookshot. Null is "nothing
+    /// newer than these tools" to every caller (Target falls back to this builder's own version), with no request sent
+    static readonly bool NoFeed = true;   // (readonly, not const: the code after it stays, for when there is a feed)
+
     public static async Task<string?> LatestTag()
     {
+        if (NoFeed) return null;
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("BlueShellBuilder");
         for (var attempt = 0; attempt < 3; attempt++)
