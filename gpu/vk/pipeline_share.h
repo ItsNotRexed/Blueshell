@@ -19,7 +19,7 @@ constexpr const char* kIssueUrl = "https://github.com/NotRexed/Hookshot/issues/2
 constexpr const char* kListName = "hookshot_pipeline_states.bin";
 constexpr const char* kReportName = "hookshot_pipeline_report.txt";
 // (the issue's template, its lines in its order: nx2/pipeline_share.py FIELDS, the same)
-constexpr const char* kFields[] = {"Hookshot version", "OS, GPU and driver", "Output resolution", "Upscaler + render resolution",
+constexpr const char* kFields[] = {"BlueShell version", "OS, GPU and driver", "Output resolution", "Upscaler + render resolution",
                                    "Frame generation / HDR", "Mods or texture packs",
                                    "Where you played (areas, dungeons, age, night/rain, ...)", "Pipelines"};
 constexpr int kFieldCount = sizeof kFields / sizeof kFields[0];
@@ -58,8 +58,9 @@ inline std::string template_lines(const std::vector<std::string>& values) {
 }
 /// hookshot_pipeline_report.txt: a note on what to do with the zip, then the template
 inline std::string report_text(const std::string& lines) {
-    return std::string("Attach this zip to a comment on ") + kIssueUrl +
-           " and paste the lines below into it, with where you played filled in.\nThe zip holds only " + kListName +
+    // (blueshell) for the pipeline list that ships with the game: Hookshot's issue (kIssueUrl) is not this game's
+    return std::string("This zip is for the pipeline list that ships with BlueShell: keep the lines below with it, where you "
+                       "played filled in.\nThe zip holds only ") + kListName +
            " (shader hashes, formats and draw state, and the hashes of the compute programs your play ran: no game code, game data or "
            "personal info) and this text.\n\n" + lines;
 }

@@ -324,8 +324,7 @@ public partial class MainWindow : Window
 
     // ---- Save my pipeline list: the game folder's pipeline list and the "Submit your pipelines" issue's template, filled in,
     // zipped into the Downloads folder by nx2/pipeline_share.py (as the Linux builder and the game's menu do), then the template
-    // on the clipboard, the zip shown in its folder and the issue opened. Nothing is uploaded: the player attaches the zip ----
-    const string ShareIssue = "https://github.com/NotRexed/BlueShell/issues/2034";
+    // on the clipboard and the zip shown in its folder. Nothing is uploaded or opened in the browser (blueshell: no issue tracker) ----
 
     async void LaunchShareClick(object sender, RoutedEventArgs e)
     {
@@ -350,12 +349,9 @@ public partial class MainWindow : Window
         try { Clipboard.SetText(template ?? ""); copied = true; } catch (Exception) { }
         var explorer = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");   // (not one found on the path)
         try { Process.Start(new ProcessStartInfo(File.Exists(explorer) ? explorer : "explorer.exe", $"/select,\"{zip}\"") { UseShellExecute = true }); } catch (Exception) { }
-        var opened = false;
-        try { Process.Start(new ProcessStartInfo(ShareIssue) { UseShellExecute = true }); opened = true; } catch (Exception) { }
+        // (blueshell) no issue tracker of its own: the zip and its report are what is shared, nothing is opened in the browser
         LaunchShareStatus.Text = $"Saved {System.IO.Path.GetFileName(zip)} ({count} pipelines) in {System.IO.Path.GetDirectoryName(zip)}. " +
-            (copied ? "The report is copied. " : "The report is in the zip. ") +
-            (opened ? "Issue #2034 is open in your browser: attach" : $"Open {ShareIssue} and attach") +
-            " the zip to a comment, then paste the report and say where you played.";
+            (copied ? "The report is copied." : "The report is in the zip.");
     }
 
     /// nx2/pipeline_share.py --json: (the zip, the template, the pipelines) or the reason there is none

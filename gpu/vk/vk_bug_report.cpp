@@ -531,11 +531,11 @@ std::string write(const Inputs& in) {
     }
 
     std::string text;
-    text += "Hookshot bug report, made by the Insert menu's Bug report on " + when(in.now, "%Y-%m-%d at %H:%M") + ".\n\n";
-    text += std::string("To send it: open ") + kIssues + " and choose Game problem (or the link at the end of this file, which "
-            "fills in the answers below), copy the answers below into the fields of the same names, say what happened, and drag "
-            "the files of this folder, this one too, into the issue.\n\n";
-    text += "### Hookshot version\n\n" + in.version + "\n\n";
+    text += "BlueShell bug report, made by the Insert menu's Bug report on " + when(in.now, "%Y-%m-%d at %H:%M") + ".\n\n";
+    // (blueshell) no issue tracker of its own: the folder is the report, shared as it is
+    text += "To share it: send this folder as it is, this file and the others in it, and say what happened. The answers below "
+            "are what a report needs.\n\n";
+    text += "### BlueShell version\n\n" + in.version + "\n\n";
     text += "### Where in the game\n\n" + where + "\n\n";
     text += "### Graphics card and driver version\n\n" + gpu + "\n\n";
     text += "### CPU, RAM and operating system\n\n" + in.system + "\n\n";
@@ -545,9 +545,8 @@ std::string write(const Inputs& in) {
             (picture ? "picture.png: the game's picture when the report was made, without the menu.\n\n"
                      : "No picture: the game showed no new frame while the report was made, or its picture could not be written.\n\n");
     text += "### What this folder holds\n\n" + files + ". Nothing else from this PC: no saves, no game files, not the options file "
-            "itself.\n\nThe link with the answers filled in" +
-            (link_short ? std::string(" (the changes from the defaults in short: the switches' names did not fit in a link)") : "") +
-            ":\n" + link + "\n";
+            "itself.\n";
+    (void)link, (void)link_short, (void)kIssues;   // (blueshell: Hookshot's issue form is not this game's)
     FILE* f = fopen((dir + "report.txt").c_str(), "wb");
     const bool written = f && fwrite(text.data(), 1, text.size(), f) == text.size();
     if (f) fclose(f);

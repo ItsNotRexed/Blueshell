@@ -1393,9 +1393,9 @@ Row rows[] = {
     {TAB_DEBUG, "Developer", nullptr, 0, 0, 0, nullptr, nullptr, nullptr, false, true, -1, true},
     // (hookshot, first under the heading: debug_rows lists only those) the zip for the "Submit your pipelines" issue: share_pipeline_list, pipeline_share.h
     {TAB_DEBUG, "Save my pipeline list", nullptr, 0, 0, 0, nullptr,
-     "Helps remove first-load stutter for everyone: saves the pipelines your play built (shader hashes and draw state, no game "
-     "data) with a filled-in report as a zip in Downloads, copies the report and opens the \"Submit your pipelines\" issue. "
-     "Attach the zip there and paste the report. Nothing is uploaded for you."},
+     "Helps remove first-load stutter: saves the pipelines your play built (shader hashes and draw state, no game data) with a "
+     "filled-in report as a zip in Downloads and copies the report, for the pipeline list that ships with the game. Nothing is "
+     "uploaded."},
     {TAB_DEBUG, "Descriptor reuse", &opts.descriptor_reuse, 0, 1, 1, tx_onoff,
      "A draw keeps its descriptors while the texture slots it samples are unchanged, so streaming elsewhere in the game no longer "
      "rebuilds every set each frame. Applies after restart.", nullptr, true, true},
@@ -1970,8 +1970,7 @@ namespace ps = pipeline_share;
 std::string share_said;    // (the help box's line after a save: where the zip went and what to do, or why there is none)
 std::string share_value;   // (the row's value after a save: Saved, or Not saved)
 constexpr const char* kShareSaidLongest = "Saved hookshot-pipelines-2026-12-31.zip (123456 pipelines) in Downloads. The report "
-    "is in the zip. Open github.com/NotRexed/Hookshot/issues/2034 and attach the zip to a comment, then paste the report and say "
-    "where you played.";   // (measure_help: the help box's room)
+    "is in the zip.";   // (measure_help: the help box's room)
 std::string share_saved;   // (the first sentence: the zip's name, its pipelines and its folder)
 std::atomic<bool> share_busy{false};   // (the worker is copying and opening: presses wait for it)
 std::atomic<int> share_result{-1};     // (the worker's answer: 1 copied, 2 the issue opened; -1 none waiting)
@@ -1979,9 +1978,7 @@ std::atomic<int> share_result{-1};     // (the worker's answer: 1 copied, 2 the 
 void share_finish() {
     const int r = share_result.exchange(-1);
     if (r < 0) return;
-    share_said = share_saved + ((r & 1) ? "The report is copied. " : "The report is in the zip. ") +
-                 ((r & 2) ? "Issue 2034 is open in your browser: attach" : "Open github.com/NotRexed/Hookshot/issues/2034 and attach") +
-                 " the zip to a comment, then paste the report and say where you played.";
+    share_said = share_saved + ((r & 1) ? "The report is copied." : "The report is in the zip.");   // (blueshell: no issue to open)
     share_busy.store(false);
     menu_refresh = true;
 }
@@ -2313,7 +2310,7 @@ void share_pipeline_list() {
     // (the clipboard, the folder and the browser on a worker of their own: ShellExecuteW and xdg-open can take hundreds of ms, and
     // this is the present thread. Presses are ignored until it is done: share_busy)
     share_busy.store(true);
-    share_said = share_saved + "Opening the issue...";
+    share_said = share_saved + "Opening the folder...";
     try {
         std::thread([lines, path, dir] {
 #ifdef _WIN32
@@ -2331,7 +2328,7 @@ void share_pipeline_list() {
             (void)path;
             share_open(dir);
 #endif
-            const bool opened = share_open(ps::kIssueUrl);
+            const bool opened = false;   // (blueshell: Hookshot's issue is not this game's; the folder alone is shown)
 #ifdef _WIN32
             if (com) co_uninit();
 #endif
@@ -3001,9 +2998,8 @@ const char* bug_report_cell() {
 /// Under its help once saved: where the report is and what to do with it (the game opens nothing: no browser or file manager is
 /// sure to be there, as on a Steam Deck in Game Mode)
 std::string bug_report_saved_text(const std::string& folder) {
-    return "Saved in the game folder as " + folder + ". To send it, open github.com/NotRexed/Hookshot/issues, choose New issue and "
-           "Game problem, copy report.txt's answers into the form and drag the folder's files into it: on Windows from File "
-           "Explorer, on Linux from a file manager (on a Steam Deck, in Desktop Mode).";
+    return "Saved in the game folder as " + folder + ". To share it, send the folder as it is and say what happened: report.txt "
+           "in it has the answers a report needs.";
 }
 /// Under its help once pressed: how the report goes
 const char* bug_report_hint() {

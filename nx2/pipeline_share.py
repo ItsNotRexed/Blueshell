@@ -34,13 +34,14 @@ ISSUE_URL = "https://github.com/NotRexed/Hookshot/issues/%d" % ISSUE
 LIST = "hookshot_pipeline_states.bin"
 REPORT = "hookshot_pipeline_report.txt"
 # (the issue's template, its lines in its order; gpu/vk/pipeline_share.h writes the same: tests/test_pipeline_share.py)
-FIELDS = ("Hookshot version", "OS, GPU and driver", "Output resolution", "Upscaler + render resolution", "Frame generation / HDR",
+FIELDS = ("BlueShell version", "OS, GPU and driver", "Output resolution", "Upscaler + render resolution", "Frame generation / HDR",
           "Mods or texture packs", "Where you played (areas, dungeons, age, night/rain, ...)", "Pipelines")
 WHERE = FIELDS[6]
-NOTE = ("Attach this zip to a comment on %s and paste the lines below into it, with where you played filled in.\n"
+# (blueshell) for the pipeline list that ships with the game: Hookshot's issue (ISSUE_URL) is not this game's
+NOTE = ("This zip is for the pipeline list that ships with BlueShell: keep the lines below with it, where you played filled in.\n"
         "The zip holds only %s (shader hashes, formats and draw state, and the hashes of the compute programs your play ran: no game "
         "code, game data or personal info) and this text.\n"
-        % (ISSUE_URL, LIST))
+        % LIST)
 
 # (hookshot_options.ini's values as the menu names them: gpu/vk/vk_menu.cpp tx_upscaler, tx_framegen, tx_hdr, and
 # gpu/vk/upscaler_rows.h kPercent)

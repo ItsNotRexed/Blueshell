@@ -129,7 +129,7 @@ def check_python(tmp):
         assert z.testzip() is None
         assert z.read(share.LIST) == data, "the list is not as the game wrote it"
         report = z.read(share.REPORT).decode("utf-8")
-    assert report.endswith(text) and share.ISSUE_URL in report
+    assert report.endswith(text) and "ships with BlueShell" in report and "github.com" not in report
     lines = text.splitlines()
     assert [l.split(":")[0] for l in lines] == ["- " + f for f in share.FIELDS], lines
     want = {
@@ -271,7 +271,7 @@ def check_cxx(cxx, tmp):
     lines = report.split("\n\n", 1)[1].splitlines()
     assert [l.split(":")[0] for l in lines] == ["- " + f for f in share.FIELDS], lines
     assert "- %s:" % share.WHERE in lines and "- Mods or texture packs: a, deep/b" in lines and "- Pipelines: 5 (version 2)" in lines
-    assert share.ISSUE_URL in report
+    assert "ships with BlueShell" in report and "github.com" not in report
     # a list with compute records: the same bytes in the zip, the same Pipelines line as the Python's
     both = with_computes(2, (0x1111, 0x2222, 0x3333))
     (t / "both.bin").write_bytes(both)
@@ -341,7 +341,7 @@ def check_sources():
     assert body.split("\n", 1)[1].lstrip().startswith("if (share_busy.load()) return;"), "a second press runs again"
     worker = body[body.find("std::thread(["):]
     assert body.find("std::thread([") > body.find('env_on("HOS_HEADLESS")'), "the opens are not on the worker"
-    for call in ("share_clipboard(", "share_open(ps::kIssueUrl)", '"CoInitializeEx"', "co_uninit()", "share_result.store("):
+    for call in ("share_clipboard(", '"CoInitializeEx"', "co_uninit()", "share_result.store("):
         assert call in worker, "the worker lacks " + call
     assert "catch (const std::system_error&)" in body and "share_finish();" in body.split("catch (const std::system_error&)")[1], \
         "a thread that cannot start leaves the row busy for good"
@@ -365,7 +365,7 @@ def check_sources():
     cs = (ROOT / "builder" / "BlueShellBuilder" / "MainWindow.xaml.cs").read_text(encoding="utf-8")
     xaml = (ROOT / "builder" / "BlueShellBuilder" / "MainWindow.xaml").read_text(encoding="utf-8")
     assert '"pipeline_share.py"' in cs and '"--json"' in cs and "Save my pipeline list" in xaml
-    assert share.ISSUE_URL in cs
+    assert "github.com/NotRexed/Hookshot/issues" not in cs and "issues/2034" not in cs, "the builder opens an issue (blueshell: none of its own)"
 
 
 def body_of(source, signature):

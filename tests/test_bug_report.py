@@ -267,7 +267,7 @@ def main():
         check(len(copy.splitlines()) == len(now_log.read_text(encoding="utf-8").splitlines()), "lines lost in the copy")
         report = files["report.txt"]
         section = lambda name: hw.section(report, name)
-        check(section("Hookshot version") == VERSION, "the version: " + section("Hookshot version"))
+        check(section("BlueShell version") == VERSION, "the version: " + section("BlueShell version"))
         gpu = section("Graphics card")
         check(gpu == "NVIDIA GeForce RTX 4090, NVIDIA 580.95.05" and hw.classify(gpu) == ("NVIDIA", "RTX 40"),
               "hardware_report.py reads the GPU as %s from %r" % (hw.classify(gpu), gpu))
@@ -288,13 +288,9 @@ def main():
         logs = section("hookshot_log.txt")
         check("hookshot v2.0.14" in logs and "CRASH: exception 0xc0000005" in logs, "the logs' section: " + logs)
         check("picture.png" in section("Screenshots or video"), "the picture is not named")
-        link = report[report.index("https://github.com/NotRexed/Hookshot/issues/new?template=1-game-problem.yml"):].split()[0]
-        for part in ("&version=v2.1.0-rc.3-39-gbdfe09c%20%28source%20763271ad%29", "&gpu=NVIDIA%20GeForce%20RTX%204090",
-                     "&where=HyruleField_Child%20%28child%29", "&system=", "&settings=Upscaler", "HOS_HEADLESS", "RX_VK_MENU_SCRIPT"):
-            check(part in link, "the link does not fill in " + part)
-        check("%3D" not in link and not any(v in link for v in ("93127", "58213", "hunter2", "192.168", "3840x2160", "1%3AINS")),
-              "the link carries a switch's value: " + link)
-        check(len(link) <= 2000 and "in short" not in report, "the link: %d characters" % len(link))
+        # (blueshell) no issue tracker of its own: no link to Hookshot's form, and the folder is what is shared
+        check("github.com" not in report and "Hookshot" not in report.split("\n### ")[0], "report.txt points at Hookshot's issues")
+        check(report.startswith("BlueShell bug report") and "send this folder as it is" in report, "report.txt's opening")
         check(any("menu: bug report written to " + folders[0] in ln for ln in out), "nothing logged: %s" % out)
 
         # 2. the menu's way: on a thread, its state read each frame; no frame comes, so no picture
@@ -342,17 +338,12 @@ def main():
         check(hw.section(report, "Where in the game").startswith("DeathMountainTrail_Child (child)"), "the middle's map")
         check(home not in copy, "the long log's copy names the home folder")
 
-        # 4b. more switches than a link takes: the link stays within 2000 characters and carries the options and how many
-        # switches there are; report.txt lists them all
+        # 4b. many switches: report.txt lists them all (blueshell: no link to shorten)
         folders, out = run(exe, "many", game, str(now_log), home, user, windows)
         report = (game_path / folders[0] / "report.txt").read_text(encoding="utf-8")
-        link = report[report.index("https://github.com/NotRexed/Hookshot/issues/new?template=1-game-problem.yml"):].split()[0]
-        check(len(link) <= 2000, "the link with 98 switches: %d characters" % len(link))
         settings = hw.section(report, "Changes from the defaults")
         listed = [ln for ln in settings.splitlines() if re.match(r"[A-Z_][A-Z0-9_]*=", ln)]
-        check("&settings=Upscaler%3A%20NVIDIA%20DLSS" in link and
-              "Switches%%20set%%3A%%20%d%%2C%%20listed%%20in%%20the%%20attached%%20report.txt" % len(listed) in link and
-              "RX_TEST_SWITCH" not in link and "in short" in report, "the shortened link: " + link)
+        check("github.com" not in report, "report.txt holds a link")
         check(all("RX_TEST_SWITCH_%d=(value left out)" % i in listed for i in range(80)) and "HOS_HEADLESS=1" in listed and
               "v" * 20 not in report, "report.txt does not list every switch, or writes a value it should leave out")
 
