@@ -898,6 +898,7 @@ public partial class MainWindow : Window
         args.AddRange(new[] { "--out", OutPath.Text, "--language", lang.Code });
         if (FsrTick.IsChecked == true) args.Add("--fsr");   // (an --update of the folder keeps it: make_game.py's mark)
         if (saveTouched) args.AddRange(new[] { "--save-folder", SavePath.Text.Trim() });   // (blueshell: empty, beside the game)
+        if (UnlockTick.IsChecked == true) args.Add("--unlock-all");
         if (FullSaveTick.IsChecked == true) args.Add("--full-save");
         prepareNow = PrepareTick.IsChecked == true;
         Run(tools, ShaderStep.Args(args, prepareNow), dlss: DlssTick.IsChecked == true,

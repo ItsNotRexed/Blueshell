@@ -1313,6 +1313,13 @@ Row rows[] = {
     {TAB_GAMEPLAY, "Discord status", &opts.discord, 0, 1, 1, tx_onoff,
      "Shows \"Playing BlueShell\" and the time played in your Discord status, while Discord runs on this PC.", nullptr, false,
      true},
+#ifdef RX_GAME_MKW
+    // (blueshell) host/mkw_unlock.c: the save the game opens gets every driver, outfit, kart, sticker, the Special Cup and Mirror
+    {TAB_GAMEPLAY, "Unlock everything", &opts.unlock_all, 0, 1, 1, tx_onoff,
+     "Every driver and outfit, kart and sticker, the Special Cup and Mirror, added to your save when the game loads it. "
+     "Nothing you have is taken away; a copy of the save before goes to save-backup-unlock. Applies after a restart.",
+     nullptr, true, true},
+#endif
     {TAB_GAMEPLAY, "Skip opening", &opts.skip_opening, 0, 1, 1, tx_onoff,
      "Skips the new-game opening (the story movie and Navi waking Link) and leaves later cutscenes, the Deku Tree "
      "meeting, and the title screen alone.", nullptr, false, true},

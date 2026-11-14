@@ -2077,6 +2077,8 @@ def parse_args():
     p.add_argument("--accept-nvidia-license", action="store_true", help="NVIDIA's DLSS SDK license, accepted (with --fetch-ngx-sdk)")
     # (AMD FSR 4, off unless asked: nothing is downloaded. gpu/vk/vk_fsr4.cpp)
     p.add_argument("--save-folder", help="(blueshell) keep the game's saves in this folder (empty: beside the game, as before)")
+    p.add_argument("--unlock-all", action="store_true",
+                   help="(blueshell) Unlock everything on: host/mkw_unlock.c adds every driver, kart, sticker, the Special Cup and Mirror to the save")
     p.add_argument("--full-save", action="store_true",
                    help="(blueshell) start with a player-made 100%% save, downloaded from GameBanana (nx2/saves.py); the save before is backed up")
     p.add_argument("--fsr", action="store_true", help="build with AMD FSR 4 (AMD's DLLs are not included: see the readme)")
@@ -2632,9 +2634,12 @@ def main(a=None):
         not_prepared(skipped)
     else:
         prepare_shaders([os.path.join(game_dir, BESIDE[0]), "--prepare-shaders", "--compile-shaders", level], out)
-    if a.save_folder is not None or a.full_save:   # (blueshell: the Builder's Save folder and 100% save)
+    if a.save_folder is not None or a.full_save or a.unlock_all:   # (blueshell: the Builder's Save folder, Unlock everything, 100% save)
         sys.path.insert(0, os.path.join(ROOT, "nx2"))
         import saves
+        if a.unlock_all:
+            saves.set_option(out, "unlock_everything", "1")
+            print("Unlock everything is on: the game adds everything to the save when it loads it", flush=True)
         beside = os.path.join(out, "user")
         if a.save_folder is not None:
             root = saves.save_folder(out, a.save_folder)

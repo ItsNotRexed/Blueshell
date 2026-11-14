@@ -234,6 +234,11 @@
               <Button Grid.Column="1" Style="{StaticResource Quiet}" Margin="10,0,0,0" Content="Change" Click="BrowseSave"/>
               <Button Grid.Column="2" Style="{StaticResource Quiet}" Margin="10,0,0,0" Content="Beside the game" Click="ClearSave"/>
             </Grid>
+            <!-- (blueshell) Unlock everything (make_game.py unlock-all option, host/mkw_unlock.c): the save keeps all it has -->
+            <CheckBox x:Name="UnlockTick" Style="{StaticResource Tick}" IsChecked="False" Margin="0,12,0,0"
+                      Content="Unlock everything (every driver, outfit, kart and sticker, the Special Cup and Mirror)"/>
+            <TextBlock Style="{StaticResource Note}" FontSize="12" Margin="26,4,0,0" TextWrapping="Wrap"
+                       Text="Added to your own save when the game loads it: your progress stays. Nothing is downloaded. It is also in the game's Insert menu, Gameplay."/>
             <!-- (blueshell) a player-made 100% save, downloaded from GameBanana on this PC (make_game.py full-save option) -->
             <CheckBox x:Name="FullSaveTick" Style="{StaticResource Tick}" IsChecked="False" Margin="0,12,0,0"
                       Content="Start with a 100% save (every character, kart and outfit unlocked)"/>

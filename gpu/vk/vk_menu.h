@@ -98,6 +98,7 @@ struct Options {
     // and its mirrors (vram_mb, mirror_mb come from it). A preset sets it; set on the row it is the player's (budget 0)
     int vram_budget = 0;
     int refresh = 0;      // "Refresh memory": a button that keeps no value, always 0 (vk_texture.cpp texture_refresh_request)
+    int unlock_all = 0;   // (blueshell) "Unlock everything": unlock_everything= in the options file, host/mkw_unlock.c reads it at the start
     int audio_output = 0; // (hookshot) the speakers the game mixes for: 0 Auto (the default output's), 1 Stereo, 2 5.1, 3 Mono; layout read at the start (host/nn_audio.c; HOS_AUDIO_CHANNELS)
     int discord = 1;   // (hookshot) the Discord status (host/discord_rpc.c): 1 on, shown while a Discord client runs on this PC
     int debug_tools = 0;   // (hookshot) the Debug tab's tools (#785: flight, free camera, teleport, inventory): 0 off; HOS_OOT_CHEATS=1 also turns them on

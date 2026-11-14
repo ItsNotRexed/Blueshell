@@ -41,6 +41,18 @@ def save_folder(out, folder):
     return folder or os.path.join(out, "user")
 
 
+def set_option(out, key, value):
+    """<key>=<value> in <out>/hookshot_options.ini, in place of the line the file had (the Insert menu keeps it)"""
+    ini = os.path.join(out, "hookshot_options.ini")
+    lines = []
+    if os.path.isfile(ini):
+        with open(ini, encoding="utf-8", errors="replace") as f:
+            lines = [l for l in f.read().splitlines() if not l.startswith(key + "=")]
+    lines.append("%s=%s" % (key, value))
+    with open(ini, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lines) + "\n")
+
+
 def fetch(url=FULL_SAVE_URL, opener=urllib.request.urlopen):
     req = urllib.request.Request(url, headers={"User-Agent": "BlueShellBuilder"})
     with opener(req, timeout=TIMEOUT) as r:
