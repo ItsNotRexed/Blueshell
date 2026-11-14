@@ -525,10 +525,21 @@ static int is_mouse_vk(int vk) { return vk == VK_LBUTTON || vk == VK_RBUTTON || 
 /* (the keys of totk-pc-recomp's docs/controls.md, github.com/valentderah/totk-pc-recomp, MIT; plus Enter for Plus; the
    mouse's left button Y, attack, and right button ZL, shield and lock-on, as before; WASD the left stick, the arrows or
    IJKL the camera) */
+#ifdef RX_GAME_MKW
+/* (blueshell) a racing layout: W accelerates (A) and S brakes (B), A and D or the left and right arrows steer, Space hops
+   and drifts (R), Shift or E uses an item (L); the up and down arrows (or I and K) the stick's up and down, to aim an item
+   and in menus, where Enter confirms and Backspace goes back; Tab or P pauses (Plus). No camera keys and no mouse buttons:
+   Mario Kart World turns no camera by them, and a click on the window pressed Y */
+static const unsigned char key_default[HOS_KEY_N][2] = {
+    {'W', VK_RETURN}, {'S', VK_BACK}, {'Q'}, {'F'}, {VK_CONTROL}, {'C'}, {VK_SHIFT, 'E'}, {VK_SPACE}, {0}, {0},
+    {VK_TAB, 'P'}, {'M'}, {'1'}, {'2'}, {'3'}, {'4'}, {VK_UP, 'I'}, {VK_DOWN, 'K'}, {'A', VK_LEFT}, {'D', VK_RIGHT},
+    {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}};
+#else
 static const unsigned char key_default[HOS_KEY_N][2] = {
     {'E'}, {VK_SHIFT}, {VK_SPACE}, {VK_LBUTTON}, {VK_CONTROL}, {'C'}, {'Q'}, {'R'}, {'Z', VK_RBUTTON}, {'X', 'F'},
     {VK_TAB, VK_RETURN}, {'M'}, {'1'}, {'2'}, {'3'}, {'4'}, {'W'}, {'S'}, {'A'}, {'D'}, {VK_UP, 'I'}, {VK_DOWN, 'K'},
     {VK_LEFT, 'J'}, {VK_RIGHT, 'L'}, {0}, {0}, {0}, {0}, {0}};   /* (the five note rows start unset: oc_pad_word) */
+#endif
 static SRWLOCK pad_bind_lock = SRWLOCK_INIT;
 static int pad_bind[HOS_KEY_N][2];
 static volatile LONG key_bind[HOS_KEY_N][2];   /* (the menu changes them as the game reads them) */
@@ -577,12 +588,13 @@ static void binds_load(void) {
     int changed = 0;
     if (f) {
         char line[80];
-        int version = 0, had_keys = 0;   /* (options_version: 3 since the mouse's buttons are bindings) */
+        int version = 0, had_keys = 0, mkw_keys = 0;   /* (options_version: 3 since the mouse's buttons are bindings) */
         while (fgets(line, sizeof line, f)) {
             char *eq = strchr(line, '=');
             if (!eq) continue;
             *eq = 0;
             if (!strcmp(line, "options_version")) version = atoi(eq + 1);
+            if (!strcmp(line, "mkw_keys")) mkw_keys = atoi(eq + 1);
             const int pad = !strncmp(line, "pad_", 4), keys = !strncmp(line, "key_", 4);
             had_keys |= keys;
             for (int i = 0; (pad || keys) && i < HOS_KEY_N; i++) {
@@ -611,6 +623,17 @@ static void binds_load(void) {
                 if (!taken && !key_bind[mouse_to[m][0]][1]) key_bind[mouse_to[m][0]][1] = mouse_to[m][1];
             }
         }
+#ifdef RX_GAME_MKW
+        /* (blueshell) keys saved before the racing layout (no mkw_keys=1, which the menu writes since) are Hookshot's
+           Zelda layout as the menu wrote it out: the racing defaults instead, once; the pad's stay as saved */
+        if (had_keys && !mkw_keys) {
+            for (int i = 0; i < HOS_KEY_N; i++)
+                for (int k = 0; k < 2; k++) InterlockedExchange(&key_bind[i][k], key_default[i][k]);
+            hos_log("hid: the keyboard's controls are the racing layout now (the options file had the old ones)");
+        }
+#else
+        (void)mkw_keys;
+#endif
     }
     if (changed) hos_log("hid: %d controls from hookshot_options.ini", changed);
     InterlockedExchange(&state, 2);

@@ -1676,7 +1676,8 @@ int ask_sel = 0;   // (the restart question's choice: 0 Later, 1 Restart now)
 bool oot_only_row(int i) {
     static const char* const names[] = {"Field of view", "Text speed", "Text size", "Skip opening", "Ultrawide menus",
                                         "Disable camera centering", "Mouse camera", "Mouse sensitivity",
-                                        "Invert mouse vertical", "Camera speed", "Debug tools", "Bug report"};
+                                        "Invert mouse vertical", "Camera speed", "Debug tools", "Bug report",
+                                        "Invert camera X", "Invert camera Y"};   // (MKW turns no camera by the stick)
     if (rows[i].cheat >= 0) return true;
     for (const char* n : names)
         if (rows[i].name && !strcmp(rows[i].name, n)) return true;
@@ -1902,6 +1903,7 @@ void save() {
                         key == "auto_tuned" || key == "auto_output" || key == "auto_steps";
             // (and the Mesh shaders row's line, no longer read (gpu/vk/mesh_mode.h): dropped, not kept for nothing)
             mine |= key == "mesh_shaders";
+            mine |= key == "mkw_keys";   // (blueshell: written below)
             for (const Row& r : rows)
                 if (!mine && r.value && key == ini_key(r)) mine = true;
             if (!mine) others += line, others += others.back() == '\n' ? "" : "\n";
@@ -1938,6 +1940,10 @@ void save() {
         // Menu shortcut "Insert, F1 or Esc" by default, see menu_init; 6: the Aspect ratio's 16:9 from before moves on a
         // screen narrower than 16:9, see menu_init and host/hos_wide_size.h)
         fprintf(f, "options_version=6\n");
+#ifdef RX_GAME_MKW
+        // (blueshell) the keys below are the racing layout's or the player's own: host/nn_hid.c binds_load keeps them
+        fprintf(f, "mkw_keys=1\n");
+#endif
         fputs(others.c_str(), f);
         if (!can_bind()) fputs(kept.c_str(), f);
         for (int i = 0; i < HOS_KEY_N && can_bind(); i++) {   // (the stick's and camera's rows, HOS_KEY_MOVE_*/CAM_*, have no pad_ line; the ocarina note rows do)
@@ -2418,6 +2424,17 @@ struct Control {
     int button;   // HOS_SW_*, or HOS_KEY_* (keys only)
     const char* name;
 };
+#ifdef RX_GAME_MKW
+// (blueshell) Mario Kart World's: what each button does in a race; the stick's four directions (steering, and aiming an
+// item); no camera or ocarina rows (host/nn_hid.c's racing layout binds none)
+const Control controls[] = {{HOS_SW_A, "A (accelerate)"}, {HOS_SW_B, "B (brake, reverse)"}, {HOS_SW_R, "R (hop, drift)"},
+                            {HOS_SW_L, "L (use item)"}, {HOS_SW_ZR, "ZR (hop, drift)"}, {HOS_SW_ZL, "ZL (use item)"},
+                            {HOS_SW_X, "X"}, {HOS_SW_Y, "Y"}, {HOS_SW_PLUS, "Plus (pause)"}, {HOS_SW_MINUS, "Minus"},
+                            {HOS_SW_LS, "Left stick press"}, {HOS_SW_RS, "Right stick press"}, {HOS_SW_UP, "D-pad up"},
+                            {HOS_SW_DOWN, "D-pad down"}, {HOS_SW_LEFT, "D-pad left"}, {HOS_SW_RIGHT, "D-pad right"},
+                            {HOS_KEY_MOVE_LEFT, "Steer left"}, {HOS_KEY_MOVE_RIGHT, "Steer right"},
+                            {HOS_KEY_MOVE_UP, "Stick up"}, {HOS_KEY_MOVE_DOWN, "Stick down"}};
+#else
 const Control controls[] = {{HOS_SW_A, "A"}, {HOS_SW_B, "B"}, {HOS_SW_X, "X"}, {HOS_SW_Y, "Y"}, {HOS_SW_L, "L"},
                             {HOS_SW_R, "R"}, {HOS_SW_ZL, "ZL"}, {HOS_SW_ZR, "ZR"}, {HOS_SW_PLUS, "Plus"},
                             {HOS_SW_MINUS, "Minus"}, {HOS_SW_LS, "Left stick press"}, {HOS_SW_RS, "Right stick press"},
@@ -2429,6 +2446,7 @@ const Control controls[] = {{HOS_SW_A, "A"}, {HOS_SW_B, "B"}, {HOS_SW_X, "X"}, {
                             {HOS_KEY_CAM_RIGHT, "Camera right"}, {HOS_KEY_OC_NOTE_L, "Ocarina note (L)"},
                             {HOS_KEY_OC_NOTE_R, "Ocarina note (R)"}, {HOS_KEY_OC_NOTE_A, "Ocarina note (A)"},
                             {HOS_KEY_OC_NOTE_Y, "Ocarina note (Y)"}, {HOS_KEY_OC_NOTE_X, "Ocarina note (X)"}};
+#endif
 constexpr int kControls = sizeof controls / sizeof controls[0];   // (then "Reset to defaults")
 // (the stick's and camera's directions: keys only; the ocarina's note rows take a gamepad input too, host/nn_hid.c)
 bool keys_only(int i) { return i < kControls && controls[i].button >= HOS_KEY_MOVE_UP && controls[i].button <= HOS_KEY_CAM_RIGHT; }
