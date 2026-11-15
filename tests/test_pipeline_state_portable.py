@@ -79,9 +79,11 @@ def main():
 #define CHECK(x) do { if (!(x)) { std::fprintf(stderr, "FAIL:%d %s\n", __LINE__, #x); std::exit(1); } } while (0)
 // the made-up GPUs: A samples ASTC and has mesh shaders; B decodes ASTC and runs mesh programs as the compute fallback
 bool gpu_b = false;
+bool no_d24 = false;   // (either GPU without 24-bit depth, as AMD's drivers: vk_format puts 32-bit float depth in its place)
 struct { void* physical = (void*)1; } dev;
 static void vkGetPhysicalDeviceFormatProperties(void*, VkFormat f, VkFormatProperties* p) {
     *p = {};
+    if (no_d24 && (f == VK_FORMAT_D24_UNORM_S8_UINT || f == VK_FORMAT_X8_D24_UNORM_PACK32)) return;
     const bool astc = f >= VK_FORMAT_ASTC_4x4_UNORM_BLOCK && f <= VK_FORMAT_ASTC_12x12_SRGB_BLOCK;
     if (astc) { if (!gpu_b) p->optimalTilingFeatures = VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT; return; }
     p->optimalTilingFeatures = VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT |
@@ -90,7 +92,9 @@ static void vkGetPhysicalDeviceFormatProperties(void*, VkFormat f, VkFormatPrope
 static VkFormatProperties format_props(VkFormat f) { VkFormatProperties p; vkGetPhysicalDeviceFormatProperties(nullptr, f, &p); return p; }
 struct VkFormatInfo { VkFormat format; bool astc; int block_w, block_h; };
 namespace { bool astc_native() { VkFormatProperties p; vkGetPhysicalDeviceFormatProperties(nullptr, VK_FORMAT_ASTC_4x4_UNORM_BLOCK, &p);
-    return p.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT; } }
+    return p.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT; }
+bool depth24_native(VkFormat f) { VkFormatProperties p; vkGetPhysicalDeviceFormatProperties(nullptr, f, &p);
+    return p.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT; } }
 enum class ViewUse { Sample, Attachment, Storage };
 struct Texture { int nvn_format = 0; };
 struct Stage { VkShaderStageFlagBits vk_stage; };
@@ -147,6 +151,18 @@ int main(int argc, char** argv) {
         CHECK(attachment_format(NVN_FORMAT_RGB8, NVN_FORMAT_RGB8) == VK_FORMAT_R8G8B8A8_UNORM);   // (widened)
         CHECK(attachment_format(NVN_FORMAT_DEPTH24_STENCIL8, NVN_FORMAT_DEPTH24_STENCIL8) == VK_FORMAT_D24_UNORM_S8_UINT);
     }
+    // without 24-bit depth (AMD): D32F and D32FS8 in its place, the draw's and the prepare's the same; a D24 target from a list
+    // of another GPU is no pipeline here
+    no_d24 = true;
+    for (int b = 0; b < 2; b++) {
+        gpu_b = b;
+        for (int f = 0; f < 0x100; f++) CHECK(drawn(f, f) == attachment_format(f, f));
+        CHECK(attachment_format(NVN_FORMAT_DEPTH24_STENCIL8, NVN_FORMAT_DEPTH24_STENCIL8) == VK_FORMAT_D32_SFLOAT_S8_UINT);
+        CHECK(attachment_format(NVN_FORMAT_DEPTH24, NVN_FORMAT_DEPTH24) == VK_FORMAT_D32_SFLOAT);
+        const uint32_t none[8] = {};
+        CHECK(!formats_ok(0, none, 1, VK_FORMAT_D24_UNORM_S8_UINT) && formats_ok(0, none, 1, VK_FORMAT_D32_SFLOAT_S8_UINT));
+    }
+    no_d24 = false;
     // ASTC: A keeps it as ASTC (no target), B decodes it to RGBA8 (a target)
     gpu_b = false; CHECK(attachment_format(0x79, 0x79) == VK_FORMAT_UNDEFINED);
     gpu_b = true; CHECK(attachment_format(0x79, 0x79) == VK_FORMAT_R8G8B8A8_UNORM);
@@ -177,6 +193,10 @@ int main(int argc, char** argv) {
         CHECK(r.variant == ra.variant && r.mesh == 1 && r.nanswers == 4);
         CHECK(r.color_types[0] == (uint8_t)Shader::AttributeType::Float);
     }
+    // the same record on a GPU without 24-bit depth: its depth as D32FS8
+    no_d24 = true;
+    { StateRec r{}; CHECK(state_v2_resolve(ra, r) && r.depth_format == VK_FORMAT_D32_SFLOAT_S8_UINT); }
+    no_d24 = false;
     // an integer target: its colour type
     { StateRec2 v = ra; v.n = 1; v.color_nvn[0] = v.view_nvn[0] = NVN_FORMAT_RGBA8UI; StateRec r{};
       CHECK(state_v2_resolve(v, r) && r.color_types[0] == (uint8_t)Shader::AttributeType::UnsignedInt); }
