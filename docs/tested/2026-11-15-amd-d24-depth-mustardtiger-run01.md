@@ -1,0 +1,3 @@
+| Date | Build | OS / desktop | GPU / driver | CPU / RAM | Settings | Where | Result |
+|---|---|---|---|---|---|---|---|
+| 2026-11-15 | v1.0.0 with fix/amd-d24-depth (renderer only, FSR 4 build) | Windows 11 Pro build 26300 | AMD Radeon RX 9070 XT, AMD proprietary 26.11.1 (LLPC), Vulkan 1.4 | AMD Ryzen 7 9800X3D, 32 GB | 2560x1440 fullscreen, ultrawide aspect, upscaler 2, mesh shaders native (default) | Grand Prix race, played by hand (run01) | Before: only the sky drawn, kart, driver and track invisible, controls working; every race logged `view of texture ... vk 129 ... not made`. After: the race drawn in full; log `D24S8 is no depth format this GPU renders and samples: D32FS8 in its place`, no view `not made` lines, 60 fps |
