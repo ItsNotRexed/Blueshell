@@ -15,7 +15,7 @@ namespace BlueShellBuilder;
 /// folder keeps).
 static class Updater
 {
-    const string Latest = "https://api.github.com/repos/NotRexed/BlueShell/releases/latest";
+    const string Latest = "https://git.notrexed.dev/api/v1/repos/BlueShell/BlueShell/releases/latest";
     const string Asset = "BlueShellBuilder.zip";
     const string SetupAsset = "BlueShellBuilder.exe";            // (the setup, builder/setup/setup.c: a release holds it and its list)
     const string SetupList = "hookshot-setup.txt";              // (scripts/make_setup_parts.py)
@@ -39,7 +39,7 @@ static class Updater
     // ---- the update tracks (the Track menu; by default the track of these tools). builder/setup/setup.c and
     // builder/linux/linux_update.py have the same rules ----
     public const string Release = "release", Candidate = "rc", Nightly = "nightly";
-    const string Releases = "https://api.github.com/repos/NotRexed/BlueShell/releases";
+    const string Releases = "https://git.notrexed.dev/api/v1/repos/BlueShell/BlueShell/releases";
     static readonly System.Text.RegularExpressions.Regex NightlyName = new(@"-\d+-g[0-9a-f]+(-dirty)?$");
     static readonly System.Text.RegularExpressions.Regex ReleaseName = new(@"^v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$");
 
@@ -95,7 +95,7 @@ static class Updater
             {
                 try
                 {
-                    var list = await http.GetStringAsync("https://github.com/NotRexed/BlueShell/releases/download/nightly/" + SetupList);
+                    var list = await http.GetStringAsync("https://git.notrexed.dev/BlueShell/BlueShell/releases/download/nightly/" + SetupList);
                     foreach (var line in list.Split('\n'))
                         if (line.StartsWith("tag ")) return line[4..].Trim();
                 }
@@ -127,9 +127,9 @@ static class Updater
     static string ReleaseApi(string? tag) => tag == null || TrackOf(tag) == Release ? Latest : Releases + "/tags/" + ReleaseOf(tag);
 
     /// The latest release's tag, quietly (null: GitHub did not answer); a few tries, 20 s at most
-    /// (blueshell) no release feed yet: NotRexed/BlueShell has no releases, and Hookshot's would offer Hookshot. Null is "nothing
-    /// newer than these tools" to every caller (Target falls back to this builder's own version), with no request sent
-    static readonly bool NoFeed = true;   // (readonly, not const: the code after it stays, for when there is a feed)
+    /// (blueshell) the release feed is git.notrexed.dev/BlueShell/BlueShell's; NoFeed true would answer "nothing newer" with no
+    /// request sent (Target falls back to this builder's own version)
+    static readonly bool NoFeed = false;   // (readonly, not const: the code after it stays, for when there is a feed)
 
     public static async Task<string?> LatestTag()
     {
@@ -159,7 +159,7 @@ static class Updater
         {
             try
             {
-                var list = await http.GetStringAsync("https://github.com/NotRexed/BlueShell/releases/latest/download/" + SetupList);
+                var list = await http.GetStringAsync("https://git.notrexed.dev/BlueShell/BlueShell/releases/latest/download/" + SetupList);
                 foreach (var line in list.Split('\n'))
                     if (line.StartsWith("tag ")) return line[4..].Trim();
             }

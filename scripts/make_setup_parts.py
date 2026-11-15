@@ -23,6 +23,8 @@ import os
 import sys
 import zipfile
 
+NAME = "BlueShellBuilder"   # (blueshell: the app's folder and file names)
+REPO = "BlueShell/BlueShell"
 SKIP_EXT = {".ps1", ".psm1", ".bat", ".cmd", ".js", ".vbs", ".html", ".htm", ".hta", ".wsf", ".pyc"}
 SKIP_DIRS = {"__pycache__"}
 TOOLS_PARTS = ("python", "emsdk", "cpm", "third_party", "wgpu-native")   # (tools/<name>: each its own part)
@@ -45,7 +47,7 @@ def write_zip(path, root, names):
     """Deterministic: the same files give the same bytes (sorted, a fixed date, fixed attributes)"""
     with zipfile.ZipFile(path + ".new", "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
         for n in sorted(names):
-            info = zipfile.ZipInfo("HookshotBuilder/" + n, date_time=(2026, 1, 1, 0, 0, 0))
+            info = zipfile.ZipInfo(NAME + "/" + n, date_time=(2026, 1, 1, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o644 << 16
             with open(os.path.join(root, n.replace("/", os.sep)), "rb") as f:
@@ -67,18 +69,18 @@ def main():
     p.add_argument("--reuse", help="an earlier hookshot-setup.txt: the parts the package has no folder for, from it")
     a = p.parse_args()
     root = os.path.abspath(a.package)
-    if not os.path.isfile(os.path.join(root, "HookshotBuilder.exe")):
+    if not os.path.isfile(os.path.join(root, NAME + ".exe")):
         sys.exit("not a Hookshot Builder package folder: %s" % root)
     # (the parts live in one release of their own, named by their checksum: a part that did not change is not uploaded again, and a
     # release itself holds only HookshotBuilder.exe (the setup) and the list it reads)
-    base = (a.base or "https://git.notrexed.dev/Hookshot/Hookshot/releases/download/builder-parts").rstrip("/")
+    base = (a.base or "https://git.notrexed.dev/%s/releases/download/builder-parts" % REPO).rstrip("/")
     os.makedirs(a.out, exist_ok=True)
     with open(os.path.join(root, "tools", "version.txt"), "w", newline="\n") as f:
         f.write(a.tag + "\n")
 
     top = sorted(os.listdir(root))
     builder_files = [n for n in top if os.path.isfile(os.path.join(root, n)) and
-                     (n.startswith("HookshotBuilder") or n in ("LICENSE", "README.txt"))]   # (HookshotBuilder-Setup.exe too: Repair runs it)
+                     (n.startswith(NAME) or n in ("LICENSE", "README.txt"))]   # (HookshotBuilder-Setup.exe too: Repair runs it)
     runtime_files = [n for n in top if os.path.isfile(os.path.join(root, n)) and n not in builder_files]
     runtime_dirs = [n for n in top if os.path.isdir(os.path.join(root, n)) and n != "tools"]
     tools = sorted(os.listdir(os.path.join(root, "tools")))
@@ -95,8 +97,8 @@ def main():
         with open(a.reuse, encoding="utf-8") as f:
             for line in f.read().splitlines():
                 w = line.split()
-                if len(w) == 7 and w[0] == "part" and w[6].rsplit("/", 1)[-1].startswith("HookshotBuilder-"):
-                    reuse[w[6].rsplit("/", 1)[-1][len("HookshotBuilder-"):].rsplit("-", 1)[0]] = line
+                if len(w) == 7 and w[0] == "part" and w[6].rsplit("/", 1)[-1].startswith(NAME + "-"):
+                    reuse[w[6].rsplit("/", 1)[-1][len(NAME + "-"):].rsplit("-", 1)[0]] = line
     lines = ["tag %s" % a.tag]
     names = ("app", "dotnet") + TOOLS_PARTS
     for name in names:
@@ -106,7 +108,7 @@ def main():
     # each zip is the same bytes as when they are made one after the other. The list keeps this order)
     todo = [n for n in names if parts.get(n)]
     with concurrent.futures.ThreadPoolExecutor(max(1, min(len(todo), os.cpu_count() or 1))) as pool:
-        zipped = dict(zip(todo, pool.map(lambda n: write_zip(os.path.join(a.out, "HookshotBuilder-%s.zip" % n), root, parts[n]),
+        zipped = dict(zip(todo, pool.map(lambda n: write_zip(os.path.join(a.out, NAME + "-%s.zip" % n), root, parts[n]),
                                          todo)))
     for name in names:
         if not parts.get(name):
@@ -114,15 +116,15 @@ def main():
                 lines.append(reuse[name])
                 print("%-12s (as in %s)" % (name, os.path.basename(a.reuse)), flush=True)
             continue
-        zp = os.path.join(a.out, "HookshotBuilder-%s.zip" % name)
+        zp = os.path.join(a.out, NAME + "-%s.zip" % name)
         sha, size = zipped[name]
-        named = os.path.join(a.out, "HookshotBuilder-%s-%s.zip" % (name, sha[:12]))
+        named = os.path.join(a.out, NAME + "-%s-%s.zip" % (name, sha[:12]))
         os.replace(zp, named)
         zp = named
         lines.append("part %s %d . - - %s/%s" % (sha, size, base, os.path.basename(zp)))
         print("%-12s %5d files %5d MB  %s" % (name, len(parts[name]), size >> 20, sha[:16]), flush=True)
-    lines.append("part %s %d HookshotBuilder/tools %s llvm-mingw %s" % LLVM)
-    lines.append("run HookshotBuilder/HookshotBuilder.exe")
+    lines.append(("part %s %d " + NAME + "/tools %s llvm-mingw %s") % LLVM)
+    lines.append("run %s/%s.exe" % (NAME, NAME))
     with open(os.path.join(a.out, "hookshot-setup.txt"), "w", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
 
