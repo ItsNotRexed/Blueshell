@@ -37,6 +37,27 @@ bool astc_native() {
     }
     return known == 1;
 }
+/// Whether this GPU renders into and samples a 24-bit depth format (X8_D24 or D24S8). AMD's drivers have neither (RX 9070 XT,
+/// 26.11.1: depth is D16, D32F, S8, D16S8 and D32FS8 only); MKW's scene depth is DEPTH24_STENCIL8 and is sampled, and as D24S8
+/// its sampled views were not made: a race drew only the sky. Where it is missing, D32F (and D32FS8) stand in: the same 0..1
+/// depth, finer. Not asked before there is a device (kept as the game's)
+bool depth24_native(VkFormat f) {
+    static std::atomic<signed char> known[2] = {-1, -1};
+    std::atomic<signed char>& k = known[f == VK_FORMAT_D24_UNORM_S8_UINT ? 1 : 0];
+    signed char v = k.load(std::memory_order_relaxed);
+    if (v < 0) {
+        if (!dev.physical) return true;
+        VkFormatProperties p{};
+        vkGetPhysicalDeviceFormatProperties(dev.physical, f, &p);
+        const VkFormatFeatureFlags need = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
+        signed char was = -1;
+        v = (p.optimalTilingFeatures & need) == need ? 1 : 0;
+        if (k.compare_exchange_strong(was, v) && !v)
+            logf("vk: %s is no depth format this GPU renders and samples: %s in its place",
+                 f == VK_FORMAT_D24_UNORM_S8_UINT ? "D24S8" : "X8_D24", f == VK_FORMAT_D24_UNORM_S8_UINT ? "D32FS8" : "D32F");
+    }
+    return v == 1;
+}
 } // namespace
 
 VkFormatInfo vk_format(int nvn_format) {
@@ -46,6 +67,11 @@ VkFormatInfo vk_format(int nvn_format) {
         if (astc_native()) return {srgb ? kAstcVkSrgb[i] : kAstcVk[i], false, kAstcBw[i], kAstcBh[i]};
         return {srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM, true, kAstcBw[i], kAstcBh[i]};
     }
+    // (24-bit depth where the GPU lacks it, AMD: 32-bit float depth, depth24_native above)
+    if (nvn_format == NVN_FORMAT_DEPTH24 && !depth24_native(VK_FORMAT_X8_D24_UNORM_PACK32))
+        return {VK_FORMAT_D32_SFLOAT, false, 1, 1};
+    if (nvn_format == NVN_FORMAT_DEPTH24_STENCIL8 && !depth24_native(VK_FORMAT_D24_UNORM_S8_UINT))
+        return {VK_FORMAT_D32_SFLOAT_S8_UINT, false, 1, 1};
     switch (nvn_format) {
     case NVN_FORMAT_R8: return {VK_FORMAT_R8_UNORM, false, 1, 1};
     case NVN_FORMAT_R8SN: return {VK_FORMAT_R8_SNORM, false, 1, 1};

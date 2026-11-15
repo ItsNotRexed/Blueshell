@@ -1850,7 +1850,9 @@ bool upload_never(const Texture& tex) {
            (tex.guest_size > (1ull << 31) && !tex.sparse) ||   // (a sparse image: only what holds texels)
            // (depth-stencil: the depth aspect only; packed D24S8 storage is not copied into it as is: such targets are
            // rendered, not uploaded)
-           tex.aspect == (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+           tex.aspect == (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) ||
+           // (24-bit depth made as D32F where the GPU lacks it, vk_formats.cpp: the game's unorm texels are no floats)
+           (tex.nvn_format == NVN_FORMAT_DEPTH24 && tex.format == VK_FORMAT_D32_SFLOAT);
 }
 bool upload_inner(Texture& tex, const Ranges* dirty) {
     PROF(PROF_UPLOAD);
