@@ -1,7 +1,7 @@
 <h1 align="center">
   <br>
   <a>
-  <img src="assets/hookshot.png" alt="BlueShell" width="200">
+  <img src="assets/readme/blueshell.png" alt="BlueShell" width="200">
 </a>
 
   <br>
