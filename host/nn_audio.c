@@ -137,6 +137,7 @@ static int get_handle(uint64_t obj, int kind) {
     return (int)(h & 0xFFFFFF);
 }
 static int pool_index(uint64_t obj);   /* (a memory pool's handle, checked against the pool table: below) */
+static void ret_float(Ctx *c, float f);
 static float farg(Ctx *c, int n) {
     float f;
     memcpy(&f, &c->vreg[n][0], 4);
@@ -394,6 +395,7 @@ typedef struct {
 } AuxRing;
 typedef struct {
     int used, released, mix, enabled, active_enabled, n, active_n, sample_count;
+    int capture;                               /* (blueshell) a Capture: the send alone, the mix left as it is */
     int8_t in[MAX_BUF], out[MAX_BUF], active_in[MAX_BUF], active_out[MAX_BUF];
     uint64_t order, sent_frames, returned_frames, underruns, overruns;
     AuxRing send, ret;
@@ -439,6 +441,16 @@ static void aux_frame(Aux *a, Mix *m) {
         const int b = a->active_in[ch];
         if (b >= 0 && b < m->buffers) memcpy(input[ch], m->buf[b], sizeof input[ch]);
         else memset(input[ch], 0, sizeof input[ch]);
+    }
+    if (a->capture) {   /* (blueshell) a Capture copies its inputs out and changes nothing */
+        if (!a->active_enabled) return;
+        if (a->send.capacity - a->send.count >= count) {
+            for (int ch = 0; ch < n; ch++)
+                for (int i = 0; i < FRAME; i++) pcm[ch * FRAME + i] = aux_pcm(input[ch][i]);
+            aux_ring_write(&a->send, pcm, count);
+            a->sent_frames++;
+        } else a->overruns++;
+        return;
     }
     if (!a->active_enabled) {
         for (int ch = 0; ch < n; ch++) {
@@ -579,7 +591,18 @@ static void render_voice(Voice *v) {
 }
 
 static int mix_depth(int i, int guard) {   /* how many sub mixes lie between this one and the final mix */
-    if (guard > MAX_MIXES || mixes[i].final_mix || mixes[i].dest_kind != DEST_MIX) return 0;
+    if (guard > MAX_MIXES || mixes[i].final_mix) return 0;
+    if (mixes[i].dest_kind == DEST_SPLITTER) {   /* (blueshell) through a splitter: the deepest of its destinations */
+        const Splitter *sp = &splitters[mixes[i].dest];
+        int deepest = 0;
+        for (int d = 0; d < sp->dests; d++)
+            if (sp->dest_mix[d] >= 0 && mixes[sp->dest_mix[d]].used) {
+                const int x = mix_depth(sp->dest_mix[d], guard + 1);
+                if (x > deepest) deepest = x;
+            }
+        return 1 + deepest;
+    }
+    if (mixes[i].dest_kind != DEST_MIX) return 0;
     return 1 + mix_depth(mixes[i].dest, guard + 1);
 }
 
@@ -605,6 +628,23 @@ static void render_frame(int16_t *pcm, int channels) {   /* 240 frames of the de
     for (int k = 0; k < n; k++) {
         Mix *s = &mixes[order[k]];
         effects_frame(order[k]);
+        if (s->dest_kind == DEST_SPLITTER && splitters[s->dest].used) {
+            /* (blueshell) a sub mix into a splitter: buffer n is the splitter's channel n, into each destination with
+               that destination's volumes (their ramps were brought up to date above). Splitter biquads: not here. */
+            const Splitter *sp = &splitters[s->dest];
+            for (int d = 0; d < sp->dests; d++) {
+                const int mi = sp->dest_mix[d];
+                if (mi < 0 || !mixes[mi].used || mi == order[k]) continue;
+                Mix *dm = &mixes[mi];
+                for (int src = 0; src < s->buffers && src < MAX_CH && src < sp->channels; src++)
+                    for (int dst = 0; dst < dm->buffers; dst++) {
+                        const float g = sp->vol[d][src][dst] * s->volume;
+                        if (g == 0.0f) continue;
+                        for (int i = 0; i < FRAME; i++) dm->buf[dst][i] += s->buf[src][i] * g;
+                    }
+            }
+            continue;
+        }
         if (s->dest_kind != DEST_MIX || !mixes[s->dest].used) continue;
         Mix *d = &mixes[s->dest];
         for (int src = 0; src < s->buffers; src++)
@@ -751,10 +791,13 @@ static uint32_t au_default_key(void) {
     return 0;   /* (linux: SDL follows the default device itself) */
 #endif
 }
-/* HOS_AUDIO_MUTE=1 (test runs): the device opened and fed as for a player, at volume 0 */
+/* HOS_AUDIO_MUTE=1 (test runs): the device opened and fed as for a player, with silence (out_mute: the blocks zeroed
+   after the peak and the dump saw them). Not waveOutSetVolume(0): Windows keeps that as the app's channel volumes
+   (the session's, not the mixer's slider) and every later run of the same exe was silent. A player's run sets them
+   back to full, so a copy a muted test ran once plays again. */
 static void au_opened(HWAVEOUT w) {
 #ifdef _WIN32
-    if (env_on("HOS_AUDIO_MUTE")) waveOutSetVolume(w, 0);
+    if (!env_on("HOS_AUDIO_MUTE")) waveOutSetVolume(w, 0xFFFFFFFFu);
 #else
     (void)w;
 #endif
@@ -1078,7 +1121,10 @@ static void output_frame(const int16_t *pcm) {
             }
         }
     }
-    memcpy(blocks[fill_block] + fill_frames * FRAME * out_channels, pcm, (size_t)(FRAME * 2 * out_channels));
+    static int out_mute = -1;   /* HOS_AUDIO_MUTE (see au_opened) */
+    if (out_mute < 0) out_mute = env_on("HOS_AUDIO_MUTE");
+    if (out_mute) memset(blocks[fill_block] + fill_frames * FRAME * out_channels, 0, (size_t)(FRAME * 2 * out_channels));
+    else memcpy(blocks[fill_block] + fill_frames * FRAME * out_channels, pcm, (size_t)(FRAME * 2 * out_channels));
     if (++fill_frames == 2) {
         h->dwFlags = 0;
         const char *operation = "waveOutPrepareHeader";
@@ -1200,9 +1246,15 @@ static void apply(const Cmd *k) {   /* (with the lock held) */
                 if (auxes[e].used && auxes[e].mix == k->idx) auxes[e].mix = -1;
             break;
         case OP_MIX_VOLUME: m->volume = k->f; break;
-        case OP_MIX_DEST:   /* (a sub mix into a splitter: not used by TOTK so far) */
-            m->dest = k->i0 == DEST_MIX ? tgt_mix : -1;
-            m->dest_kind = m->dest >= 0 ? DEST_MIX : DEST_NONE;
+        case OP_MIX_DEST:   /* (blueshell) a sub mix into a splitter: Mario Kart World's karts, characters and effects */
+            if (k->i0 == DEST_SPLITTER) {
+                const int sp = k->tgt >= 0 && k->tgt < MAX_SPLITTERS && splitters[k->tgt].used ? k->tgt : -1;
+                m->dest = sp;
+                m->dest_kind = sp >= 0 ? DEST_SPLITTER : DEST_NONE;
+            } else {
+                m->dest = k->i0 == DEST_MIX ? tgt_mix : -1;
+                m->dest_kind = m->dest >= 0 ? DEST_MIX : DEST_NONE;
+            }
             break;
         case OP_MIX_MIX_VOLUME: m->to[k->i0][k->i1] = k->f; break;
         }
@@ -1445,7 +1497,22 @@ HLE(_ZN2nn5audio25ListAudioOutputDeviceNameEPNS0_15AudioDeviceNameEi) {
     }
     RET((int)ARG(1) > 0 ? 1 : 0);
 }
-HLE(_ZN2nn5audio26SetAudioDeviceOutputVolumeEPKNS0_15AudioDeviceNameEf) {}
+static float device_output_volume = 1.0f;   /* (blueshell) the system's volume as the game set it; 1 until then */
+HLE(_ZN2nn5audio26SetAudioDeviceOutputVolumeEPKNS0_15AudioDeviceNameEf) {
+    const float v = farg(c, 0);
+    if (isfinite(v)) device_output_volume = v < 0.0f ? 0.0f : v;
+}
+/* (blueshell) Mario Kart World asks for these; left out, a float return was whatever the register held */
+HLE(_ZN2nn5audio26GetAudioDeviceOutputVolumeEPKNS0_15AudioDeviceNameE) { ret_float(c, device_output_volume); }
+static int volume_auto_tune;
+HLE(_ZN2nn5audio40SetDeviceOutputVolumeAutoTuneModeEnabledEb) { volume_auto_tune = (int)ARG(0) & 1; }
+HLE(_ZN2nn5audio39IsDeviceOutputVolumeAutoTuneModeEnabledEv) { RET(volume_auto_tune); }
+static float voice_drop_parameter = 1.0f;
+HLE(_ZN2nn5audio34SetAudioRendererVoiceDropParameterENS0_19AudioRendererHandleEf) {
+    const float v = farg(c, 0);
+    if (isfinite(v)) voice_drop_parameter = v;
+}
+HLE(_ZN2nn5audio34GetAudioRendererVoiceDropParameterENS0_19AudioRendererHandleE) { ret_float(c, voice_drop_parameter); }
 
 /* GetSampleByteSize(SampleFormat): PcmInt8 1, PcmInt16 2, PcmInt24 3, PcmInt32 4, PcmFloat 4 (ADPCM: no fixed size).
    The game steps through sample buffers by it: 0 kept the main thread looping (f_089d3588) while Great Sky Island
@@ -1543,7 +1610,8 @@ static void set_mix_dest(uint64_t obj, int kind, uint64_t dest) {
     AUT("audio: sub mix %d destination %s %#llx (mix %d, splitter %d)", mix_index(obj), kind == DEST_MIX ? "mix" : "splitter",
         (unsigned long long)dest, mix_index(dest), get_handle(dest, K_SPLITTER));
     if (mix_of(obj)) {
-        const Cmd k = {.op = OP_MIX_DEST, .idx = mix_index(obj), .tgt = kind == DEST_MIX ? mix_index(dest) : -1, .i0 = kind};
+        const Cmd k = {.op = OP_MIX_DEST, .idx = mix_index(obj), .i0 = kind,
+                       .tgt = !dest ? -1 : kind == DEST_MIX ? mix_index(dest) : get_handle(dest, K_SPLITTER)};
         submit(&k);
     }
     au_unlock();
@@ -1739,7 +1807,8 @@ HLE(_ZN2nn5audio14SetVoiceVolumeEPNS0_9VoiceTypeEf) {
     au_lock();
     Voice *v = voice_of(ARG(0));
     if (v) {
-        if (v->volume != farg(c, 0)) AUT("audio: voice %d volume %.3f", (int)(v - voices), farg(c, 0));
+        if (v->volume != farg(c, 0)) AUT("audio: voice %d volume %.3f (lr %#llx)", (int)(v - voices), farg(c, 0),
+                                         (unsigned long long)c->x[30]);
         const Cmd k = {.op = OP_VOICE_VOLUME, .idx = (int)(v - voices), .f = farg(c, 0)};
         submit(&k);
     }
@@ -1820,7 +1889,16 @@ HLE(_ZN2nn5audio16AppendWaveBufferEPNS0_9VoiceTypeEPKNS0_10WaveBufferE) {
         v->pending_wb++;
         submit(&k);
         ok = 1;
-        static int logged;
+        static int logged, wb_log = -1;
+        if (wb_log < 0) wb_log = env_on("HOS_AUDIO_WB_LOG");
+        if (wb_log) {   /* HOS_AUDIO_WB_LOG=1: every wave buffer appended, with its first data bytes (finding a sound's buffers) */
+            const WB w = read_wb(ARG(1));
+            const uint8_t *d = w.size >= 8 ? (const uint8_t *)GP(w.buffer) : NULL;
+            hos_log("audio: wb voice %d fmt %d %d Hz state %d vol %.2f dest %d/%d data %#llx size %llu %d..%d bytes %02x%02x%02x%02x%02x%02x%02x%02x",
+                    (int)(v - voices), v->format, v->rate, v->state, v->volume, v->dest_kind, v->dest,
+                    (unsigned long long)w.buffer, (unsigned long long)w.size, w.start, w.end,
+                    d ? d[0] : 0, d ? d[1] : 0, d ? d[2] : 0, d ? d[3] : 0, d ? d[4] : 0, d ? d[5] : 0, d ? d[6] : 0, d ? d[7] : 0);
+        }
         if (logged++ < 8) {
             const WB w = read_wb(ARG(1));
             hos_log("audio: wave buffer %#llx: data %#llx size %llu samples %d..%d loop %d context %#llx (voice format %d)",
@@ -1976,6 +2054,99 @@ HLE(_ZN2nn5audio17GetAuxSampleCountEPKNS0_7AuxTypeE) {
     au_lock();
     const Aux *a = aux_of(ARG(0));
     RET(a ? a->sample_count : 0);  /* allocation capacity, not the number currently waiting to be read */
+    au_unlock();
+}
+
+/* ---- Capture (blueshell): an Aux with only its send. The renderer copies the chosen mix buffers into the capture
+   buffer each frame and leaves the mix as it is; the game reads them with ReadCaptureBuffer. Mario Kart World adds
+   one; left out, AddCapture "succeeded" with nothing behind it and every read came back empty. ---------------------- */
+static void add_capture(Ctx *c) {
+    au_lock();
+    int e = 0;
+    while (e < MAX_EFFECTS && auxes[e].used) e++;
+    const int m = mix_index(ARG(2));
+    const uint64_t bytes = ARG(4);
+    if (e == MAX_EFFECTS || m < 0 || !ARG(1) || !ARG(3) || bytes < 128 + FRAME * sizeof(int32_t) || bytes > INT32_MAX) {
+        au_unlock();
+        RET(0x1A9 << 9 | 153);
+        return;
+    }
+    Aux *a = &auxes[e];
+    memset(a, 0, sizeof *a);
+    a->used = 1;
+    a->capture = 1;
+    a->mix = m;
+    a->order = ++effect_order;
+    a->sample_count = (int)(((bytes - 128) / sizeof(int32_t)) & ~15ULL) / FRAME * FRAME;
+    memset(GP(ARG(3)), 0, (size_t)bytes);
+    a->send.data = (int32_t *)GP(ARG(3) + 128);
+    put_handle(ARG(1), K_AUX, e);
+    AUT("audio: capture %d on mix %d, %d samples", e, m, a->sample_count);
+    au_unlock();
+    RET(0);
+}
+HLE(_ZN2nn5audio10AddCaptureEPNS0_19AudioRendererConfigEPNS0_11CaptureTypeEPNS0_10SubMixTypeEPvm) { add_capture(c); }
+HLE(_ZN2nn5audio10AddCaptureEPNS0_19AudioRendererConfigEPNS0_11CaptureTypeEPNS0_12FinalMixTypeEPvm) { add_capture(c); }
+HLE(_ZN2nn5audio13RemoveCaptureEPNS0_19AudioRendererConfigEPNS0_11CaptureTypeEPNS0_10SubMixTypeE) { remove_aux(c); }
+HLE(_ZN2nn5audio13RemoveCaptureEPNS0_19AudioRendererConfigEPNS0_11CaptureTypeEPNS0_12FinalMixTypeE) { remove_aux(c); }
+HLE(_ZN2nn5audio31GetRequiredBufferSizeForCaptureEPKNS0_22AudioRendererParameterEii) {
+    const int frames = (int)ARG(1), channels = (int)ARG(2);
+    const int samples = ARG(0) ? (int)G32(ARG(0) + 4) : 0;
+    if (frames <= 0 || channels <= 0 || samples <= 0 ||
+        (uint64_t)frames * channels > (INT32_MAX - 191u) / (4u * (uint64_t)samples)) { RET(0); return; }
+    const uint64_t bytes = (uint64_t)frames * channels * samples * sizeof(int32_t);
+    RET(((bytes + 63) & ~63ULL) + 128);
+}
+HLE(_ZN2nn5audio15SetCaptureInputEPNS0_11CaptureTypeEPKai) {
+    au_lock();
+    Aux *a = aux_of(ARG(0));
+    int n = (int)ARG(2);
+    if (a && a->capture && a->mix >= 0 && n >= 0 && n <= MAX_BUF && (n == 0 || ARG(1))) {
+        if (n > mixes[a->mix].buffers) n = mixes[a->mix].buffers;
+        Cmd k = {.op = OP_AUX_MAP, .idx = (int)(a - auxes), .i0 = n};
+        if (n) {
+            memcpy(k.in, GP(ARG(1)), (size_t)n);
+            memcpy(k.out, GP(ARG(1)), (size_t)n);
+        }
+        a->n = n;
+        memcpy(a->in, k.in, (size_t)n);
+        memcpy(a->out, k.out, (size_t)n);
+        submit(&k);
+    }
+    au_unlock();
+}
+HLE(_ZN2nn5audio17SetCaptureEnabledEPNS0_11CaptureTypeEb) {
+    au_lock();
+    Aux *a = aux_of(ARG(0));
+    if (a && a->capture) {
+        a->enabled = (int)ARG(1) & 1;
+        const Cmd k = {.op = OP_AUX_ENABLE, .idx = (int)(a - auxes), .i0 = a->enabled};
+        submit(&k);
+    }
+    au_unlock();
+}
+HLE(_ZN2nn5audio16IsCaptureEnabledEPKNS0_11CaptureTypeE) {
+    au_lock();
+    const Aux *a = aux_of(ARG(0));
+    RET(a && a->capture ? a->enabled : 0);
+    au_unlock();
+}
+HLE(_ZN2nn5audio18IsCaptureRemovableEPKNS0_11CaptureTypeE) {
+    au_lock();
+    const Aux *a = aux_of(ARG(0));
+    RET(a && a->capture && !a->enabled && !a->active_enabled);
+    au_unlock();
+}
+HLE(_ZN2nn5audio17ReadCaptureBufferEPNS0_11CaptureTypeEPii) {
+    au_lock();
+    Aux *a = aux_of(ARG(0));
+    RET(a && a->capture && ARG(1) ? aux_ring_read(&a->send, (int32_t *)GP(ARG(1)), (int)ARG(2)) : 0);
+    au_unlock();
+}
+HLE(_ZN2nn5audio21GetCaptureSampleCountEPKNS0_11CaptureTypeE) {
+    au_lock();
+    const Aux *a = aux_of(ARG(0));
+    RET(a && a->capture ? a->sample_count : 0);
     au_unlock();
 }
 
